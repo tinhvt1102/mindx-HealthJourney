@@ -46,6 +46,10 @@ export const authService = {
     const res = await api.get('/auth/me');
     return res.data;
   },
+  updateProfile: async (profileData) => {
+    const res = await api.put('/auth/profile', profileData);
+    return res.data;
+  },
 };
 
 export default api;

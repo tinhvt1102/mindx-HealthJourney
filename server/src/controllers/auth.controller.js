@@ -72,6 +72,8 @@ export const register = async (req, res) => {
         avatarUrl: newUser.avatar,
         bio: newUser.bio,
         heightCm: newUser.heightCm,
+        birthDate: newUser.birthDate,
+        gender: newUser.gender,
       },
     });
   } catch (error) {
@@ -131,6 +133,8 @@ export const login = async (req, res) => {
         avatarUrl: user.avatar || user.avatarUrl,
         bio: user.bio,
         heightCm: user.heightCm,
+        birthDate: user.birthDate,
+        gender: user.gender,
       },
     });
   } catch (error) {
@@ -163,4 +167,92 @@ export const getMe = async (req, res) => {
       createdAt: req.user.createdAt,
     },
   });
+};
+
+// @desc    Cập nhật thông tin cá nhân (chiều cao, ngày sinh, giới tính...)
+// @route   PUT /api/v1/auth/profile
+// @access  Private (Cần Bearer Token)
+export const updateProfile = async (req, res) => {
+  try {
+    const { heightCm, birthDate, gender, fullName, avatarUrl } = req.body;
+    const user = req.user;
+
+    // Validate và cập nhật Chiều cao
+    if (heightCm !== undefined && heightCm !== null && heightCm !== '') {
+      const height = Number(heightCm);
+      if (isNaN(height) || height < 50 || height > 250) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chiều cao phải là số hợp lệ từ 50cm đến 250cm',
+        });
+      }
+      user.heightCm = height;
+    }
+
+    // Validate và cập nhật Ngày sinh
+    if (birthDate !== undefined && birthDate !== null && birthDate !== '') {
+      const parsedDate = new Date(birthDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ngày sinh không đúng định dạng ngày tháng hợp lệ',
+        });
+      }
+      if (parsedDate > new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ngày sinh không thể ở thời điểm tương lai',
+        });
+      }
+      user.birthDate = parsedDate;
+    } else if (birthDate === null || birthDate === '') {
+      user.birthDate = undefined;
+    }
+
+    // Validate và cập nhật Giới tính
+    if (gender !== undefined && gender !== null && gender !== '') {
+      const validGenders = ['MALE', 'FEMALE', 'OTHER'];
+      if (!validGenders.includes(gender)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giới tính không hợp lệ (chỉ chấp nhận MALE, FEMALE hoặc OTHER)',
+        });
+      }
+      user.gender = gender;
+    }
+
+    // Cập nhật Họ và tên nếu có
+    if (fullName !== undefined && typeof fullName === 'string' && fullName.trim()) {
+      user.fullName = fullName.trim();
+    }
+
+    // Cập nhật Ảnh đại diện nếu có
+    if (avatarUrl !== undefined && typeof avatarUrl === 'string') {
+      user.avatarUrl = avatarUrl.trim();
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Cập nhật thông tin hồ sơ thành công',
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+        heightCm: user.heightCm,
+        birthDate: user.birthDate,
+        gender: user.gender,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('[Update Profile Error]:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ khi cập nhật hồ sơ cá nhân',
+      error: error.message,
+    });
+  }
 };
