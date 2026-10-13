@@ -62,30 +62,30 @@ export default function App() {
         <div className="bg-white rounded-2xl p-8 border border-slate-200/80 shadow-sm">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-4">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            Xác thực thành công (Sprint 1)
+            Xác thực thành công
           </div>
           <h2 className="text-2xl font-bold text-slate-900">
-            Xin chào, {currentUser.fullName}! 👋
+            Xin chào, {currentUser.fullName}! 
           </h2>
           <p className="mt-2 text-slate-600 text-sm max-w-2xl leading-relaxed">
-            Bạn đã đăng nhập thành công vào hệ thống <strong>HealthJourney</strong>. Token JWT bảo mật đã được lưu trữ an toàn trong trình duyệt.
+            Bạn đã đăng nhập thành công vào hệ thống <strong>HealthJourney</strong>.
           </p>
 
           {/* 3 Quick Cards cho các Sprint tiếp theo */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
             <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
               <Activity className="w-6 h-6 text-teal-600 mb-3" />
-              <h4 className="font-semibold text-slate-900">Sprint 1 - Chỉ số cá nhân</h4>
+              <h4 className="font-semibold text-slate-900">Chỉ số cá nhân</h4>
               <p className="text-xs text-slate-500 mt-1">Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết.</p>
             </div>
             <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
               <Users className="w-6 h-6 text-teal-600 mb-3" />
-              <h4 className="font-semibold text-slate-900">Sprint 2 - Nhóm Gia đình</h4>
+              <h4 className="font-semibold text-slate-900">Nhóm Gia đình</h4>
               <p className="text-xs text-slate-500 mt-1">Tạo Family và gửi lời mời người thân qua Email.</p>
             </div>
             <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
               <Shield className="w-6 h-6 text-teal-600 mb-3" />
-              <h4 className="font-semibold text-slate-900">Sprint 2 - Phân quyền riêng tư</h4>
+              <h4 className="font-semibold text-slate-900">Phân quyền riêng tư</h4>
               <p className="text-xs text-slate-500 mt-1">Bật/tắt ai được xem chỉ số nào (Default Deny).</p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 
 // Helper sinh JWT token
@@ -8,15 +9,16 @@ const signToken = (id) => {
   });
 };
 
-// @desc    Đăng ký tài khoản mới
+// @desc    Đăng ký tài khoản mới (Chuẩn SCRUM-17: email, passwordHash, name, avatar, bio)
 // @route   POST /api/v1/auth/register
 // @access  Public
 export const register = async (req, res) => {
   try {
-    const { email, password, fullName } = req.body;
+    const { email, password, fullName, name, avatar, bio, heightCm } = req.body;
+    const displayName = (name || fullName || '').trim();
 
     // Validate đầu vào cơ bản
-    if (!email || !password || !fullName) {
+    if (!email || !password || !displayName) {
       return res.status(400).json({
         success: false,
         message: 'Vui lòng điền đầy đủ Email, Mật khẩu và Họ tên',
@@ -39,11 +41,20 @@ export const register = async (req, res) => {
       });
     }
 
+    // Băm mật khẩu lưu vào trường passwordHash theo đúng Jira
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
     // Tạo user mới
     const newUser = await User.create({
       email: email.toLowerCase(),
-      password,
-      fullName: fullName.trim(),
+      passwordHash,
+      name: displayName,
+      fullName: displayName,
+      avatar: avatar || '',
+      avatarUrl: avatar || '',
+      bio: bio || '',
+      heightCm: heightCm || 170,
     });
 
     const token = signToken(newUser._id);
@@ -55,8 +66,11 @@ export const register = async (req, res) => {
       user: {
         id: newUser._id,
         email: newUser.email,
-        fullName: newUser.fullName,
-        avatarUrl: newUser.avatarUrl,
+        name: newUser.name,
+        fullName: newUser.name,
+        avatar: newUser.avatar,
+        avatarUrl: newUser.avatar,
+        bio: newUser.bio,
         heightCm: newUser.heightCm,
       },
     });
@@ -84,8 +98,8 @@ export const login = async (req, res) => {
       });
     }
 
-    // Tìm user và lấy kèm trường password (vì mặc định select: false)
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    // Lấy kèm trường passwordHash hoặc password cũ để so khớp
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash +password');
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -93,7 +107,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Kiểm tra password
+    // So khớp mật khẩu
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -111,8 +125,11 @@ export const login = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
+        name: user.name || user.fullName,
+        fullName: user.name || user.fullName,
+        avatar: user.avatar || user.avatarUrl,
+        avatarUrl: user.avatar || user.avatarUrl,
+        bio: user.bio,
         heightCm: user.heightCm,
       },
     });
@@ -135,8 +152,11 @@ export const getMe = async (req, res) => {
     user: {
       id: req.user._id,
       email: req.user.email,
-      fullName: req.user.fullName,
-      avatarUrl: req.user.avatarUrl,
+      name: req.user.name || req.user.fullName,
+      fullName: req.user.name || req.user.fullName,
+      avatar: req.user.avatar || req.user.avatarUrl,
+      avatarUrl: req.user.avatar || req.user.avatarUrl,
+      bio: req.user.bio,
       heightCm: req.user.heightCm,
       birthDate: req.user.birthDate,
       gender: req.user.gender,

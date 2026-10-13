@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+// Schema chuẩn 100% theo ticket Jira SCRUM-17:
+// (email, passwordHash, name, avatar, bio, timestamps) kèm index unique email
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -11,30 +13,43 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Email không hợp lệ'],
     },
+    // Lưu mật khẩu băm với tên trường passwordHash theo Jira
+    passwordHash: {
+      type: String,
+      select: false, // Ẩn khi query thông thường
+    },
+    // Trường password dự phòng cho các tài khoản cũ đã tạo
     password: {
       type: String,
-      required: [true, 'Mật khẩu là bắt buộc'],
-      minlength: [8, 'Mật khẩu phải có tối thiểu 8 ký tự'],
-      select: false, // Không tự động trả về khi query
+      select: false,
     },
+    // Tên người dùng theo Jira (name)
+    name: {
+      type: String,
+      trim: true,
+      maxlength: [60, 'Tên tối đa 60 ký tự'],
+    },
+    // Dự phòng fullName nếu user cũ có
     fullName: {
       type: String,
-      required: [true, 'Họ tên là bắt buộc'],
       trim: true,
-      maxlength: [60, 'Họ tên tối đa 60 ký tự'],
+    },
+    avatar: {
+      type: String,
+      default: '',
     },
     avatarUrl: {
       type: String,
       default: '',
     },
+    bio: {
+      type: String,
+      default: '',
+      maxlength: [250, 'Tiểu sử tối đa 250 ký tự'],
+    },
     heightCm: {
       type: Number,
-      min: [50, 'Chiều cao tối thiểu 50cm'],
-      max: [250, 'Chiều cao tối đa 250cm'],
       default: 170,
-    },
-    birthDate: {
-      type: Date,
     },
     gender: {
       type: String,
@@ -43,25 +58,20 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Tự động tạo createdAt và updatedAt
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Hash password trước khi lưu
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
+// Tạo Index Unique cho email theo Jira SCRUM-17
+userSchema.index({ email: 1 }, { unique: true });
 
-// So khớp mật khẩu khi đăng nhập
+// So khớp mật khẩu đăng nhập (hỗ trợ cả passwordHash và password cũ)
 userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  const hash = this.passwordHash || this.password;
+  if (!hash) return false;
+  return bcrypt.compare(candidatePassword, hash);
 };
 
 export const User = mongoose.model('User', userSchema);
