@@ -88,8 +88,6 @@ userSchema.virtual('bmi').get(function () {
   return null;
 });
 
-// Tạo Index Unique cho email theo Jira SCRUM-17
-userSchema.index({ email: 1 }, { unique: true });
 
 // So khớp mật khẩu đăng nhập (hỗ trợ cả passwordHash và password cũ)
 userSchema.methods.comparePassword = async function (candidatePassword) {

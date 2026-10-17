@@ -63,4 +63,28 @@ export const userService = {
   },
 };
 
+export const healthRecordService = {
+  create: async (recordData) => {
+    const res = await api.post('/health-records', recordData);
+    return res.data;
+  },
+  getAll: async (params = {}) => {
+    // params hỗ trợ: { type: 'BLOOD_PRESSURE', days: 7, days: 30, startDate, endDate }
+    const res = await api.get('/health-records', { params });
+    return res.data;
+  },
+  getById: async (id) => {
+    const res = await api.get(`/health-records/${id}`);
+    return res.data;
+  },
+  update: async (id, recordData) => {
+    const res = await api.put(`/health-records/${id}`, recordData);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/health-records/${id}`);
+    return res.data;
+  },
+};
+
 export default api;

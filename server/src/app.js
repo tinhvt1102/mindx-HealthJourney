@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
+import healthRecordRoutes from './routes/healthRecord.routes.js';
 
 const app = express();
 
@@ -25,6 +26,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/health-records', healthRecordRoutes);
+app.use('/api/health-records', healthRecordRoutes);
 
 // 404 Handler
 app.use((req, res) => {
