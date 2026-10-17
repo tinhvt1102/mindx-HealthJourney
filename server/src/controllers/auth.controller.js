@@ -162,19 +162,23 @@ export const getMe = async (req, res) => {
       avatarUrl: req.user.avatar || req.user.avatarUrl,
       bio: req.user.bio,
       heightCm: req.user.heightCm,
+      weightKg: req.user.weightKg,
       birthDate: req.user.birthDate,
       gender: req.user.gender,
+      bloodType: req.user.bloodType,
+      bmi: req.user.bmi,
       createdAt: req.user.createdAt,
+      updatedAt: req.user.updatedAt,
     },
   });
 };
 
-// @desc    Cập nhật thông tin cá nhân (chiều cao, ngày sinh, giới tính...)
+// @desc    Cập nhật thông tin cá nhân (chiều cao, cân nặng, ngày sinh, giới tính...)
 // @route   PUT /api/v1/auth/profile
 // @access  Private (Cần Bearer Token)
 export const updateProfile = async (req, res) => {
   try {
-    const { heightCm, birthDate, gender, fullName, avatarUrl } = req.body;
+    const { heightCm, weightKg, birthDate, gender, bloodType, fullName, name, avatarUrl, bio } = req.body;
     const user = req.user;
 
     // Validate và cập nhật Chiều cao
@@ -187,6 +191,18 @@ export const updateProfile = async (req, res) => {
         });
       }
       user.heightCm = height;
+    }
+
+    // Validate và cập nhật Cân nặng
+    if (weightKg !== undefined && weightKg !== null && weightKg !== '') {
+      const weight = Number(weightKg);
+      if (isNaN(weight) || weight < 10 || weight > 300) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cân nặng phải là số hợp lệ từ 10kg đến 300kg',
+        });
+      }
+      user.weightKg = weight;
     }
 
     // Validate và cập nhật Ngày sinh
@@ -221,14 +237,34 @@ export const updateProfile = async (req, res) => {
       user.gender = gender;
     }
 
+    // Validate và cập nhật Nhóm máu
+    if (bloodType !== undefined && bloodType !== null && bloodType !== '') {
+      const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'];
+      if (!validBloodTypes.includes(bloodType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nhóm máu không hợp lệ (hỗ trợ: A+, A-, B+, B-, AB+, AB-, O+, O-, UNKNOWN)',
+        });
+      }
+      user.bloodType = bloodType;
+    }
+
     // Cập nhật Họ và tên nếu có
-    if (fullName !== undefined && typeof fullName === 'string' && fullName.trim()) {
-      user.fullName = fullName.trim();
+    const resolvedName = fullName !== undefined ? fullName : name;
+    if (resolvedName !== undefined && typeof resolvedName === 'string' && resolvedName.trim()) {
+      user.fullName = resolvedName.trim();
+      user.name = resolvedName.trim();
     }
 
     // Cập nhật Ảnh đại diện nếu có
     if (avatarUrl !== undefined && typeof avatarUrl === 'string') {
       user.avatarUrl = avatarUrl.trim();
+      user.avatar = avatarUrl.trim();
+    }
+
+    // Cập nhật Bio nếu có
+    if (bio !== undefined && typeof bio === 'string') {
+      user.bio = bio.trim();
     }
 
     await user.save();
@@ -239,12 +275,18 @@ export const updateProfile = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
+        name: user.name || user.fullName,
+        fullName: user.fullName || user.name,
+        avatarUrl: user.avatarUrl || user.avatar,
+        bio: user.bio,
         heightCm: user.heightCm,
+        weightKg: user.weightKg,
         birthDate: user.birthDate,
         gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
         createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     });
   } catch (error) {

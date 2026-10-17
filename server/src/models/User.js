@@ -50,11 +50,26 @@ const userSchema = new mongoose.Schema(
     heightCm: {
       type: Number,
       default: 170,
+      min: [50, 'Chiều cao tối thiểu là 50cm'],
+      max: [250, 'Chiều cao tối đa là 250cm'],
+    },
+    weightKg: {
+      type: Number,
+      min: [10, 'Cân nặng tối thiểu là 10kg'],
+      max: [300, 'Cân nặng tối đa là 300kg'],
+    },
+    birthDate: {
+      type: Date,
     },
     gender: {
       type: String,
       enum: ['MALE', 'FEMALE', 'OTHER'],
       default: 'OTHER',
+    },
+    bloodType: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'],
+      default: 'UNKNOWN',
     },
   },
   {
@@ -63,6 +78,15 @@ const userSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Virtual tính chỉ số thể trạng BMI tự động từ heightCm và weightKg
+userSchema.virtual('bmi').get(function () {
+  if (this.heightCm && this.weightKg) {
+    const heightInMeters = this.heightCm / 100;
+    return Number((this.weightKg / (heightInMeters * heightInMeters)).toFixed(1));
+  }
+  return null;
+});
 
 // Tạo Index Unique cho email theo Jira SCRUM-17
 userSchema.index({ email: 1 }, { unique: true });

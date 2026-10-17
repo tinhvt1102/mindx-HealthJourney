@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // 404 Handler
 app.use((req, res) => {
