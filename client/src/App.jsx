@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
-import { Heart, LogOut, User, Activity, Users, Shield, UserCog, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { 
+  Heart, 
+  LogOut, 
+  User, 
+  Activity, 
+  Users, 
+  Shield, 
+  UserCog, 
+  LayoutDashboard, 
+  ChevronRight,
+  ShieldCheck,
+  Ruler
+} from 'lucide-react';
 import { authService } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('profile'); // Mặc định mở Profile theo yêu cầu task, hoặc có thể chuyển sang dashboard
+  const [currentTab, setCurrentTab] = useState('profile'); // Mặc định mở Profile theo task
 
   useEffect(() => {
     const savedUser = localStorage.getItem('health_user');
@@ -42,17 +54,22 @@ export default function App() {
   };
 
   const handleUpdateUser = (updatedUser) => {
-    setCurrentUser(updatedUser);
+    const merged = { ...currentUser, ...updatedUser };
+    setCurrentUser(merged);
+    localStorage.setItem('health_user', JSON.stringify(merged));
   };
 
   if (!currentUser) {
     return <AuthPage onLoginSuccess={(user) => setCurrentUser(user)} />;
   }
 
+  const avatarUrl = currentUser.avatar || currentUser.avatarUrl;
+  const displayName = currentUser.fullName || currentUser.name || currentUser.email;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30">
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             {/* Logo */}
@@ -110,11 +127,15 @@ export default function App() {
               }`}
               title="Xem và chỉnh sửa hồ sơ cá nhân"
             >
-              <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold">
-                {(currentUser.fullName || currentUser.email || 'U').charAt(0).toUpperCase()}
+              <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  displayName.charAt(0).toUpperCase()
+                )}
               </div>
               <span className="text-sm font-semibold max-w-[130px] truncate">
-                {currentUser.fullName || currentUser.email}
+                {displayName}
               </span>
             </button>
 
@@ -170,7 +191,7 @@ export default function App() {
                   Hệ thống hoạt động bình thường
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900">
-                  Xin chào, {currentUser.fullName || 'bạn'}! 👋
+                  Xin chào, {displayName}! 👋
                 </h2>
                 <p className="mt-2 text-slate-600 text-sm leading-relaxed">
                   Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất (chiều cao, ngày sinh, giới tính) trong mục Hồ sơ để các tính toán sức khỏe đạt độ chính xác tối ưu.

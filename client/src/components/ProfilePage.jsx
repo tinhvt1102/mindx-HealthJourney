@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Mail, 
@@ -14,7 +14,9 @@ import {
   Sparkles, 
   Lock,
   ArrowLeft,
-  Info
+  Info,
+  Camera,
+  UploadCloud
 } from 'lucide-react';
 import { authService } from '../services/api';
 
@@ -26,6 +28,11 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   // Thông báo phản hồi
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Avatar states
+  const [avatar, setAvatar] = useState(currentUser?.avatar || currentUser?.avatarUrl || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -103,6 +110,38 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
     setBirthDate(data.birthDate);
     setGender(data.gender);
     setOriginalData(data);
+    if (user.avatar || user.avatarUrl) {
+      setAvatar(user.avatar || user.avatarUrl);
+    }
+  };
+
+  // Xử lý upload avatar lên Cloudinary
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Kích thước ảnh tối đa là 5MB.');
+      return;
+    }
+
+    try {
+      setUploadingAvatar(true);
+      setErrorMessage('');
+      const res = await authService.uploadAvatar(file);
+      if (res.success && res.avatarUrl) {
+        setAvatar(res.avatarUrl);
+        setSuccessMessage('Tải ảnh đại diện lên Cloudinary thành công!');
+        if (onUpdateUser && res.user) {
+          onUpdateUser(res.user);
+        }
+        setTimeout(() => setSuccessMessage(''), 4000);
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Lỗi khi upload ảnh lên Cloudinary.');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   // Lấy dữ liệu mới nhất từ server khi mount
@@ -256,9 +295,41 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
       {/* HEADER CARD: Danh tính người dùng */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          {/* Avatar Chữ Cái */}
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center text-3xl font-extrabold shadow-lg shadow-teal-600/20 shrink-0">
-            {avatarLetter}
+          {/* Avatar Cloudinary */}
+          <div className="relative group shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center text-3xl font-extrabold shadow-lg shadow-teal-600/20 overflow-hidden border-2 border-white">
+              {avatar ? (
+                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                avatarLetter
+              )}
+            </div>
+
+            {/* Nút bấm đổi ảnh đại diện Cloudinary */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute inset-0 bg-slate-900/60 text-white rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+              title="Tải ảnh lên Cloudinary"
+            >
+              {uploadingAvatar ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <Camera className="w-5 h-5 mb-0.5" />
+                  <span className="text-[10px] font-medium">Đổi ảnh</span>
+                </>
+              )}
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
           </div>
 
           {/* User Info */}

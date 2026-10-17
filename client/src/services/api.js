@@ -38,6 +38,14 @@ export const authService = {
     const res = await api.post('/auth/register', userData);
     return res.data;
   },
+  verifyOtp: async (otpData) => {
+    const res = await api.post('/auth/verify-otp', otpData);
+    return res.data;
+  },
+  resendOtp: async (emailData) => {
+    const res = await api.post('/auth/resend-otp', emailData);
+    return res.data;
+  },
   login: async (credentials) => {
     const res = await api.post('/auth/login', credentials);
     return res.data;
@@ -48,6 +56,16 @@ export const authService = {
   },
   updateProfile: async (profileData) => {
     const res = await api.put('/auth/profile', profileData);
+    return res.data;
+  },
+  uploadAvatar: async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await api.post('/upload/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return res.data;
   },
 };
