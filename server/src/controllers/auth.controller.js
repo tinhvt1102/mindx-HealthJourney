@@ -150,6 +150,8 @@ export const verifyOtp = async (req, res) => {
         avatarUrl: user.avatar || user.avatarUrl,
         bio: user.bio,
         heightCm: user.heightCm,
+        birthDate: user.birthDate,
+        gender: user.gender,
         isVerified: true,
       },
     });
@@ -246,6 +248,8 @@ export const login = async (req, res) => {
         avatarUrl: user.avatar || user.avatarUrl,
         bio: user.bio,
         heightCm: user.heightCm,
+        birthDate: user.birthDate,
+        gender: user.gender,
         isVerified: user.isVerified,
       },
     });
@@ -282,37 +286,103 @@ export const getMe = async (req, res) => {
   });
 };
 
-// @desc    Cập nhật hồ sơ cá nhân (SCRUM-20: Tên, Bio, Chiều cao, Giới tính)
+// @desc    Cập nhật thông tin cá nhân (chiều cao, ngày sinh, giới tính, họ tên, bio, avatar...)
 // @route   PUT /api/v1/auth/profile
 // @access  Private (Cần Bearer Token)
 export const updateProfile = async (req, res) => {
   try {
-    const { name, fullName, bio, heightCm, gender } = req.body;
-    const updateData = {};
+    const { heightCm, birthDate, gender, fullName, name, bio, avatar, avatarUrl } = req.body;
+    const user = req.user;
 
-    if (name || fullName) {
-      updateData.name = (name || fullName).trim();
-      updateData.fullName = (name || fullName).trim();
+    // Validate và cập nhật Chiều cao
+    if (heightCm !== undefined && heightCm !== null && heightCm !== '') {
+      const height = Number(heightCm);
+      if (isNaN(height) || height < 50 || height > 250) {
+        return res.status(400).json({
+          success: false,
+          message: 'Chiều cao phải là số hợp lệ từ 50cm đến 250cm',
+        });
+      }
+      user.heightCm = height;
     }
-    if (bio !== undefined) updateData.bio = bio;
-    if (heightCm !== undefined) updateData.heightCm = Number(heightCm);
-    if (gender) updateData.gender = gender.toString().toUpperCase();
 
-    const updatedUser = await User.findByIdAndUpdate(req.user._id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    // Validate và cập nhật Ngày sinh
+    if (birthDate !== undefined && birthDate !== null && birthDate !== '') {
+      const parsedDate = new Date(birthDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ngày sinh không đúng định dạng ngày tháng hợp lệ',
+        });
+      }
+      if (parsedDate > new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ngày sinh không thể ở thời điểm tương lai',
+        });
+      }
+      user.birthDate = parsedDate;
+    } else if (birthDate === null || birthDate === '') {
+      user.birthDate = undefined;
+    }
+
+    // Validate và cập nhật Giới tính
+    if (gender !== undefined && gender !== null && gender !== '') {
+      const normalizedGender = gender.toString().toUpperCase();
+      const validGenders = ['MALE', 'FEMALE', 'OTHER'];
+      if (!validGenders.includes(normalizedGender)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Giới tính không hợp lệ (chỉ chấp nhận MALE, FEMALE hoặc OTHER)',
+        });
+      }
+      user.gender = normalizedGender;
+    }
+
+    // Cập nhật Họ và tên nếu có
+    const displayName = fullName || name;
+    if (displayName !== undefined && typeof displayName === 'string' && displayName.trim()) {
+      user.fullName = displayName.trim();
+      user.name = displayName.trim();
+    }
+
+    // Cập nhật Bio nếu có
+    if (bio !== undefined) {
+      user.bio = bio;
+    }
+
+    // Cập nhật Ảnh đại diện nếu có
+    const newAvatar = avatarUrl || avatar;
+    if (newAvatar !== undefined && typeof newAvatar === 'string') {
+      user.avatarUrl = newAvatar.trim();
+      user.avatar = newAvatar.trim();
+    }
+
+    await user.save();
 
     return res.status(200).json({
       success: true,
-      message: 'Cập nhật hồ sơ cá nhân thành công',
-      user: updatedUser,
+      message: 'Cập nhật thông tin hồ sơ thành công',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name || user.fullName,
+        fullName: user.fullName || user.name,
+        avatar: user.avatar || user.avatarUrl,
+        avatarUrl: user.avatarUrl || user.avatar,
+        bio: user.bio,
+        heightCm: user.heightCm,
+        birthDate: user.birthDate,
+        gender: user.gender,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+      },
     });
   } catch (error) {
     console.error('[Update Profile Error]:', error);
     return res.status(500).json({
       success: false,
-      message: 'Lỗi server khi cập nhật hồ sơ',
+      message: 'Lỗi máy chủ khi cập nhật hồ sơ cá nhân',
       error: error.message,
     });
   }

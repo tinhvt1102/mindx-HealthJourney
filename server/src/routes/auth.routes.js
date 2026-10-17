@@ -19,5 +19,6 @@ router.post('/resend-otp', resendOtp);
 // Routes yêu cầu đăng nhập
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
+router.put('/me', protect, updateProfile);
 
 export default router;
