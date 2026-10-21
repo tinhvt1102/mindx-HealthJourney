@@ -1,4 +1,5 @@
 import { HealthRecord, DEFAULT_UNITS } from '../models/HealthRecord.js';
+import { User } from '../models/User.js';
 import mongoose from 'mongoose';
 
 /**
@@ -20,6 +21,16 @@ export const createHealthRecord = async (req, res) => {
       recordedAt: recordedAt ? new Date(recordedAt) : new Date(),
       note: note || '',
     });
+
+    // AC3 SCRUM-24: Tự động tính BMI khi log cân nặng dựa trên chiều cao profile
+    if (type === 'WEIGHT' && value !== undefined) {
+      const userProfile = await User.findById(req.user._id).select('heightCm');
+      if (userProfile && userProfile.heightCm) {
+        const heightInMeters = userProfile.heightCm / 100;
+        const weightKg = Number(value);
+        newRecord.bmi = Number((weightKg / (heightInMeters * heightInMeters)).toFixed(1));
+      }
+    }
 
     await newRecord.save();
 

@@ -27,12 +27,13 @@ describe('Integration Test: HealthRecord API (Jira SCRUM-30)', () => {
     await User.deleteMany({ email: { $in: ['test_hoang_a@example.com', 'test_hoang_b@example.com'] } });
     await HealthRecord.deleteMany({ note: /\[TEST_SUITE\]/ });
 
-    // Tạo User A (Chính)
+    // Tạo User A (Chính) - có heightCm để test AC3 BMI
     userA = await User.create({
       email: 'test_hoang_a@example.com',
       passwordHash: 'dummyHashForTesting',
       name: 'Nguyen Van A',
       fullName: 'Nguyen Van A',
+      heightCm: 170, // Dùng để tính BMI khi log WEIGHT (AC3 SCRUM-24)
     });
     tokenA = jwt.sign({ id: userA._id }, JWT_SECRET, { expiresIn: '1h' });
 
@@ -372,6 +373,43 @@ describe('Integration Test: HealthRecord API (Jira SCRUM-30)', () => {
         .set('Authorization', `Bearer ${tokenA}`);
 
       assert.equal(checkRes.status, 404);
+    });
+
+    // AC3 SCRUM-24: Tự động tính BMI khi log cân nặng
+    it('2.11 [CREATE - AC3] Tự động tính và lưu BMI khi log cân nặng (WEIGHT)', async () => {
+      // User A có heightCm = 170, log cân nặng 70kg => BMI = 70 / (1.7^2) ≈ 24.2
+      const res = await request(app)
+        .post('/api/v1/health-records')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          type: 'WEIGHT',
+          value: 70,
+          note: '[TEST_SUITE] Log cân nặng để test BMI tự động',
+        });
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.success, true);
+      assert.equal(res.body.data.type, 'WEIGHT');
+      assert.equal(res.body.data.value, 70);
+
+      // BMI = 70 / (1.70^2) = 24.2
+      assert.ok(res.body.data.bmi !== null, 'BMI phải được tính và lưu vào record');
+      assert.equal(res.body.data.bmi, 24.2, 'BMI phải là 24.2 với chiều cao 170cm và cân nặng 70kg');
+    });
+
+    it('2.12 [CREATE - AC3] Bản ghi các loại khác (HEART_RATE) KHÔNG có trường bmi', async () => {
+      const res = await request(app)
+        .post('/api/v1/health-records')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          type: 'HEART_RATE',
+          value: 80,
+          note: '[TEST_SUITE] Nhịp tim không có BMI',
+        });
+
+      assert.equal(res.status, 201);
+      // bmi phải là null (không áp dụng cho HEART_RATE)
+      assert.equal(res.body.data.bmi, null, 'BMI phải là null với loại chỉ số không phải WEIGHT');
     });
   });
 
