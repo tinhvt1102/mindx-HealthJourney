@@ -281,11 +281,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* Các Sprint tính năng */}
+            {/* Các nhóm tính năng chính */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
               <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
                 <Activity className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 1 - Chỉ số cá nhân</h4>
+                <h4 className="font-semibold text-slate-900">Chỉ số sức khỏe</h4>
                 <p className="text-xs text-slate-500 mt-1">Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết.</p>
               </div>
 
@@ -296,11 +296,11 @@ export default function App() {
                 <div className="flex items-center justify-between mb-3">
                   <Users className="w-6 h-6 text-teal-600" />
                   <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
-                    Mới
+                    Gia đình
                   </span>
                 </div>
                 <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
-                  Sprint 3 - Nhóm Gia đình
+                  Không gian Gia đình
                 </h4>
                 <p className="text-xs text-slate-600 mt-1">
                   Mời người thân qua Email, duyệt lời mời bằng Token và quản lý thành viên.

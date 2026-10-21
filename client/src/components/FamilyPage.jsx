@@ -222,12 +222,7 @@ export default function FamilyPage({ currentUser, onBack }) {
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900">Quản lý nhóm Gia đình</h1>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60">
-                Sprint 3
-              </span>
-            </div>
+            <h1 className="text-2xl font-bold text-slate-900">Quản lý nhóm Gia đình</h1>
             <p className="text-sm text-slate-600 mt-1 leading-relaxed">
               Mời người thân tham gia nhóm để cùng theo dõi sức khỏe và bảo vệ dữ liệu theo phân quyền.
             </p>
