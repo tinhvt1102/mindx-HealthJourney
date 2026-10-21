@@ -266,6 +266,54 @@ export const declineInvitation = async (req, res) => {
 };
 
 /**
+ * @desc    Lấy danh sách các lời mời đang chờ (PENDING) của người dùng hiện tại
+ *          Phục vụ Banner / Modal thông báo lời mời cho Member (SCRUM-39)
+ * @route   GET /api/invitations/pending, GET /api/v1/invitations/pending
+ * @access  Private
+ */
+export const getMyPendingInvitations = async (req, res) => {
+  try {
+    const userEmail = req.user.email.toLowerCase();
+    const invitations = await FamilyInvitation.find({
+      invitedEmail: userEmail,
+      status: 'PENDING',
+      expiresAt: { $gt: new Date() },
+    })
+      .populate('familyId', 'name createdBy')
+      .populate('inviterId', 'name fullName email avatar avatarUrl')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: invitations.length,
+      invitations: invitations.map((inv) => ({
+        id: inv._id,
+        token: inv.token,
+        familyId: inv.familyId?._id,
+        familyName: inv.familyId?.name || 'Nhóm gia đình',
+        inviterName:
+          inv.inviterId?.name ||
+          inv.inviterId?.fullName ||
+          inv.inviterId?.email,
+        inviterAvatar:
+          inv.inviterId?.avatarUrl || inv.inviterId?.avatar || '',
+        invitedEmail: inv.invitedEmail,
+        status: inv.status,
+        expiresAt: inv.expiresAt,
+        createdAt: inv.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Error getting my pending invitations:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy danh sách lời mời đang chờ',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc    Xem thông tin chi tiết lời mời bằng token (Trước khi quyết định Accept/Decline)
  * @route   GET /api/invitations/:token, GET /api/v1/invitations/:token
  * @access  Private

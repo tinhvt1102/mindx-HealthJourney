@@ -305,4 +305,52 @@ describe('Integration Test: Family Invitation API (Jira SCRUM-38)', () => {
       assert.equal(res.body.success, false);
     });
   });
+
+  // =========================================================================
+  // 5. TEST GET /api/invitations/pending (Danh sách lời mời chờ cho Member Banner/Modal)
+  // =========================================================================
+  describe('5. API GET /api/invitations/pending (SCRUM-39 Banner)', () => {
+    let pendingUser, pendingToken;
+
+    before(async () => {
+      pendingUser = await User.create({
+        email: 'pending_user_test@example.com',
+        passwordHash: 'dummyHash',
+        name: 'Pending Member',
+      });
+      pendingToken = jwt.sign({ id: pendingUser._id }, JWT_SECRET, { expiresIn: '1h' });
+
+      // Admin gửi lời mời tới pendingUser
+      await request(app)
+        .post(`/api/families/${testFamily._id}/invite`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email: pendingUser.email,
+        });
+    });
+
+    after(async () => {
+      await User.deleteMany({ email: 'pending_user_test@example.com' });
+      await FamilyInvitation.deleteMany({ invitedEmail: 'pending_user_test@example.com' });
+    });
+
+    it('5.1 Lấy danh sách lời mời PENDING của chính người dùng đăng nhập', async () => {
+      const res = await request(app)
+        .get('/api/invitations/pending')
+        .set('Authorization', `Bearer ${pendingToken}`);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.ok(Array.isArray(res.body.invitations));
+      assert.ok(res.body.count >= 1);
+      assert.equal(res.body.invitations[0].invitedEmail, pendingUser.email.toLowerCase());
+      assert.equal(res.body.invitations[0].status, 'PENDING');
+    });
+
+    it('5.2 Trả về 401 khi không có token đăng nhập', async () => {
+      const res = await request(app).get('/api/invitations/pending');
+      assert.equal(res.status, 401);
+      assert.equal(res.body.success, false);
+    });
+  });
 });

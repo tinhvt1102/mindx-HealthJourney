@@ -1,14 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
-import { Heart, LogOut, User, Activity, Users, Shield, UserCog, LayoutDashboard, ChevronRight } from 'lucide-react';
+import FamilyPage from './components/FamilyPage';
+import InvitationBanner from './components/InvitationBanner';
+import InvitationModal from './components/InvitationModal';
+import { 
+  Heart, 
+  LogOut, 
+  User, 
+  Activity, 
+  Users, 
+  Shield, 
+  UserCog, 
+  LayoutDashboard, 
+  ChevronRight,
+  UserPlus
+} from 'lucide-react';
 import { authService } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('profile'); // Mặc định mở Profile theo yêu cầu task, hoặc có thể chuyển sang dashboard
+  const [currentTab, setCurrentTab] = useState('dashboard'); // Mặc định mở Dashboard hoặc Family
+
+  // Hỗ trợ duyệt lời mời từ URL query params (?inviteToken=... hoặc ?invitation=...)
+  const [urlInviteToken, setUrlInviteToken] = useState(null);
+  const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
 
   useEffect(() => {
+    // Kiểm tra URL params khi mở trang
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('inviteToken') || params.get('invitation');
+    if (tokenFromUrl) {
+      setUrlInviteToken(tokenFromUrl);
+      setIsUrlModalOpen(true);
+    }
+
     const savedUser = localStorage.getItem('health_user');
     if (savedUser) {
       try {
@@ -86,6 +112,19 @@ export default function App() {
 
               <button
                 type="button"
+                onClick={() => setCurrentTab('family')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                  currentTab === 'family'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Gia đình</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCurrentTab('profile')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'profile'
@@ -142,22 +181,45 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setCurrentTab('family')}
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
+              currentTab === 'family' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }`}
+          >
+            Gia đình
+          </button>
+          <button
+            type="button"
             onClick={() => setCurrentTab('profile')}
             className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
               currentTab === 'profile' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
             }`}
           >
-            Hồ sơ cá nhân
+            Hồ sơ
           </button>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {/* Banner thông báo lời mời cho Member (SCRUM-39) */}
+        <InvitationBanner 
+          currentUser={currentUser} 
+          onFamilyUpdated={() => {
+            // Khi accept lời mời, có thể tự động chuyển sang tab family để xem
+            setCurrentTab('family');
+          }} 
+        />
+
         {currentTab === 'profile' ? (
           <ProfilePage
             currentUser={currentUser}
             onUpdateUser={handleUpdateUser}
+            onBack={() => setCurrentTab('dashboard')}
+          />
+        ) : currentTab === 'family' ? (
+          <FamilyPage
+            currentUser={currentUser}
             onBack={() => setCurrentTab('dashboard')}
           />
         ) : (
@@ -173,18 +235,18 @@ export default function App() {
                   Xin chào, {currentUser.fullName || 'bạn'}! 👋
                 </h2>
                 <p className="mt-2 text-slate-600 text-sm leading-relaxed">
-                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất (chiều cao, ngày sinh, giới tính) trong mục Hồ sơ để các tính toán sức khỏe đạt độ chính xác tối ưu.
+                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất trong mục Hồ sơ hoặc thiết lập nhóm Gia đình để cùng người thân theo dõi sức khỏe.
                 </p>
               </div>
 
-              {/* Quick action card sang Profile */}
-              <div className="shrink-0">
+              {/* Quick actions */}
+              <div className="shrink-0 flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={() => setCurrentTab('profile')}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  onClick={() => setCurrentTab('family')}
+                  className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <UserCog className="w-4 h-4" />
-                  <span>Cập nhật hồ sơ thể chất</span>
+                  <Users className="w-4 h-4" />
+                  <span>Quản lý Gia đình</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -219,27 +281,58 @@ export default function App() {
               </div>
             </div>
 
-            {/* Các Sprint tính năng tiếp theo */}
+            {/* Các Sprint tính năng */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
               <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
                 <Activity className="w-6 h-6 text-teal-600 mb-3" />
                 <h4 className="font-semibold text-slate-900">Sprint 1 - Chỉ số cá nhân</h4>
                 <p className="text-xs text-slate-500 mt-1">Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết.</p>
               </div>
-              <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
-                <Users className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 2 - Nhóm Gia đình</h4>
-                <p className="text-xs text-slate-500 mt-1">Tạo Family và gửi lời mời người thân qua Email.</p>
+
+              <div 
+                onClick={() => setCurrentTab('family')}
+                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <Users className="w-6 h-6 text-teal-600" />
+                  <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Mới
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  Sprint 3 - Nhóm Gia đình
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Mời người thân qua Email, duyệt lời mời bằng Token và quản lý thành viên.
+                </p>
               </div>
+
               <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
                 <Shield className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 2 - Phân quyền riêng tư</h4>
+                <h4 className="font-semibold text-slate-900">Phân quyền riêng tư</h4>
                 <p className="text-xs text-slate-500 mt-1">Bật/tắt ai được xem chỉ số nào (Default Deny).</p>
               </div>
             </div>
           </div>
         )}
       </main>
+
+      {/* Modal duyệt lời mời trực tiếp từ URL (?inviteToken=...) */}
+      <InvitationModal
+        token={urlInviteToken}
+        isOpen={isUrlModalOpen}
+        onClose={() => {
+          setIsUrlModalOpen(false);
+          // Xóa query param trên URL mà không reload trang
+          const url = new URL(window.location);
+          url.searchParams.delete('inviteToken');
+          url.searchParams.delete('invitation');
+          window.history.replaceState({}, '', url);
+        }}
+        onSuccess={() => {
+          setCurrentTab('family');
+        }}
+      />
     </div>
   );
 }

@@ -87,4 +87,42 @@ export const healthRecordService = {
   },
 };
 
+export const familyService = {
+  create: async (familyData) => {
+    const res = await api.post('/families', familyData);
+    return res.data;
+  },
+  getMyFamilies: async () => {
+    const res = await api.get('/families');
+    return res.data;
+  },
+  getById: async (id) => {
+    const res = await api.get(`/families/${id}`);
+    return res.data;
+  },
+  inviteMember: async (familyId, email) => {
+    const res = await api.post(`/families/${familyId}/invite`, { email });
+    return res.data;
+  },
+};
+
+export const invitationService = {
+  getPending: async () => {
+    const res = await api.get('/invitations/pending');
+    return res.data;
+  },
+  getByToken: async (token) => {
+    const res = await api.get(`/invitations/${token}`);
+    return res.data;
+  },
+  accept: async (token) => {
+    const res = await api.post(`/invitations/${token}/accept`);
+    return res.data;
+  },
+  decline: async (token) => {
+    const res = await api.post(`/invitations/${token}/decline`);
+    return res.data;
+  },
+};
+
 export default api;
