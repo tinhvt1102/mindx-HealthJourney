@@ -12,6 +12,8 @@ import {
   updateFamilySharingPolicies,
 } from '../controllers/policy.controller.js';
 import { validateUpdatePolicy } from '../middlewares/policyValidation.middleware.js';
+import { healthAccessControl } from '../middlewares/healthAccessControl.js';
+import { getFamilyMemberHealthRecords } from '../controllers/healthRecord.controller.js';
 
 const router = express.Router();
 
@@ -32,5 +34,12 @@ router.post('/:id/invite', validateInviteMember, inviteMember);
 router.route('/:familyId/policies')
   .get(getFamilySharingPolicies)
   .put(validateUpdatePolicy, updateFamilySharingPolicies);
+
+// Endpoint lấy dữ liệu sức khỏe của thành viên có kiểm soát quyền SharingPolicy (Jira SCRUM-46)
+router.get(
+  '/:familyId/members/:memberId/health-records',
+  healthAccessControl,
+  getFamilyMemberHealthRecords
+);
 
 export default router;
