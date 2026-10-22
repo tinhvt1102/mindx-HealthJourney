@@ -7,6 +7,11 @@ import {
   getFamilyById,
   getMyFamilies,
 } from '../controllers/family.controller.js';
+import {
+  getFamilySharingPolicies,
+  updateFamilySharingPolicies,
+} from '../controllers/policy.controller.js';
+import { validateUpdatePolicy } from '../middlewares/policyValidation.middleware.js';
 
 const router = express.Router();
 
@@ -22,5 +27,10 @@ router.route('/:id')
 
 // Endpoint gửi lời mời theo ticket SCRUM-38
 router.post('/:id/invite', validateInviteMember, inviteMember);
+
+// Endpoint lấy và cập nhật chính sách chia sẻ dữ liệu sức khỏe (Jira SCRUM-43)
+router.route('/:familyId/policies')
+  .get(getFamilySharingPolicies)
+  .put(validateUpdatePolicy, updateFamilySharingPolicies);
 
 export default router;
