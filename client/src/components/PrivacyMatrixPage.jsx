@@ -279,8 +279,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
               </h1>
             </div>
             <p className="text-sm text-slate-600 mt-1 leading-relaxed max-w-2xl">
-              Chủ động phân quyền xem từng loại chỉ số sức khỏe cho từng người thân trong gia đình.
-              Áp dụng nguyên tắc <strong>Từ chối mặc định (Default Deny)</strong> nhằm bảo vệ dữ liệu tối đa.
+              Quản lý ai trong gia đình được phép xem dữ liệu sức khỏe <strong>CỦA BẠN</strong>. Dữ liệu thuộc quyền sở hữu cá nhân và áp dụng nguyên tắc <strong>Từ chối mặc định (Default Deny)</strong>.
             </p>
           </div>
         </div>
@@ -409,7 +408,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
               Nhóm "{selectedFamilyName}" chưa có thành viên nào khác
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Bạn hiện là thành viên duy nhất trong nhóm này. Hãy vào mục <strong>Gia đình</strong> để gửi lời mời người thân, sau đó quay lại đây để phân quyền chia sẻ chỉ số.
+              Bạn hiện là thành viên duy nhất trong nhóm này. Hãy vào mục <strong>Gia đình</strong> để mời người thân, sau đó quay lại đây để cài đặt những ai được phép xem chỉ số của bạn.
             </p>
           </div>
         </div>
@@ -420,7 +419,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
             <div className="flex items-center gap-2 text-slate-600">
               <Shield className="w-4 h-4 text-teal-600" />
               <span>
-                Đang thiết lập quyền cho <strong>{matrix.length}</strong> thành viên trong nhóm{' '}
+                Đang cài đặt quyền cho phép <strong>{matrix.length}</strong> người thân xem dữ liệu <strong>CỦA BẠN</strong> trong nhóm{' '}
                 <strong className="text-slate-900">"{selectedFamilyName}"</strong>
               </span>
             </div>
@@ -449,12 +448,24 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    <th className="py-4 px-6 min-w-[200px]">Thành viên gia đình</th>
+                    <th className="py-4 px-6 min-w-[220px]">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                          NGƯỜI THÂN ĐƯỢC CẤP QUYỀN XEM
+                        </span>
+                        <span className="text-[11px] font-normal text-slate-500 lowercase first-letter:uppercase">
+                          (Ai được xem dữ liệu của bạn?)
+                        </span>
+                      </div>
+                    </th>
                     {HEALTH_METRICS.map((metric) => {
                       const IconComponent = metric.icon;
                       return (
                         <th key={metric.key} className="py-4 px-4 text-center min-w-[110px]">
                           <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200/60 px-1.5 py-0.5 rounded uppercase tracking-tight">
+                              Cho xem
+                            </span>
                             <span className={`p-1.5 rounded-lg ${metric.bgColor} ${metric.color}`}>
                               <IconComponent className="w-4 h-4" />
                             </span>
@@ -513,7 +524,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                                 }`}
                                 role="switch"
                                 aria-checked={isEnabled}
-                                title={`${isEnabled ? 'Đang cho phép' : 'Đang chặn'}: ${metric.label}`}
+                                title={`${isEnabled ? 'Đang cho phép' : 'Đang chặn'} ${member.viewerName} xem chỉ số ${metric.label} CỦA BẠN`}
                               >
                                 <span
                                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
@@ -533,7 +544,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                               onClick={() => handleAllowAllForViewer(member.viewerId)}
                               disabled={isAllAllowed}
                               className="px-2 py-1 rounded text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title="Bật toàn bộ chỉ số cho người này"
+                              title={`Cho phép ${member.viewerName} xem toàn bộ chỉ số CỦA BẠN`}
                             >
                               Tất cả
                             </button>
@@ -542,7 +553,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                               onClick={() => handleRevokeAllForViewer(member.viewerId)}
                               disabled={isAllDenied}
                               className="px-2 py-1 rounded text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title="Thu hồi toàn bộ chỉ số của người này"
+                              title={`Chặn ${member.viewerName} xem mọi chỉ số CỦA BẠN`}
                             >
                               Tắt hết
                             </button>
@@ -564,7 +575,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                 Cơ chế bảo vệ dữ liệu sức khỏe (Default Deny)
               </h4>
               <p className="text-teal-800">
-                Khi bất kỳ thành viên nào tham gia vào nhóm gia đình của bạn, hệ thống luôn thiết lập mặc định là <strong>không chia sẻ bất kỳ chỉ số nào</strong>. Chỉ khi bạn chủ động gạt công tắc màu xanh tại đây và bấm <strong>"Lưu cài đặt"</strong>, người thân đó mới có thể xem được dữ liệu tương ứng.
+                Dữ liệu sức khỏe thuộc quyền sở hữu của chính bạn. Dù là Trưởng nhóm hay bất kỳ ai, người thân chỉ có thể xem được những chỉ số mà bạn đã chủ động bật công tắc chia sẻ tại bảng này.
               </p>
             </div>
           </div>
