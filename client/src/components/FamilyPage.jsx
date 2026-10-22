@@ -22,7 +22,7 @@ import {
 import { familyService, invitationService } from '../services/api';
 import InvitationModal from './InvitationModal';
 
-export default function FamilyPage({ currentUser, onBack }) {
+export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy }) {
   // Danh sách các nhóm gia đình của user
   const [families, setFamilies] = useState([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState(null);
@@ -230,6 +230,18 @@ export default function FamilyPage({ currentUser, onBack }) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          {onNavigateToPrivacy && (
+            <button
+              type="button"
+              onClick={onNavigateToPrivacy}
+              className="px-4 py-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+              title="Thiết lập quyền xem chỉ số cho các thành viên"
+            >
+              <ShieldCheck className="w-4 h-4 text-teal-600" />
+              <span>Phân quyền riêng tư</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsCreatingFamily(true)}

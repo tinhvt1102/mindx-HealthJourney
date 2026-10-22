@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
 import FamilyPage from './components/FamilyPage';
+import PrivacyMatrixPage from './components/PrivacyMatrixPage';
 import InvitationBanner from './components/InvitationBanner';
 import InvitationModal from './components/InvitationModal';
 import { 
@@ -10,6 +11,7 @@ import {
   User, 
   Activity, 
   Users, 
+  ShieldCheck, 
   Shield, 
   UserCog, 
   LayoutDashboard, 
@@ -20,7 +22,7 @@ import { authService } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('dashboard'); // Mặc định mở Dashboard hoặc Family
+  const [currentTab, setCurrentTab] = useState('dashboard'); // 'dashboard' | 'family' | 'privacy' | 'profile'
 
   // Hỗ trợ duyệt lời mời từ URL query params (?inviteToken=... hoặc ?invitation=...)
   const [urlInviteToken, setUrlInviteToken] = useState(null);
@@ -96,7 +98,7 @@ export default function App() {
             </div>
 
             {/* Navigation Tabs */}
-            <nav className="hidden sm:flex items-center gap-1.5 pl-4 border-l border-slate-200">
+            <nav className="hidden md:flex items-center gap-1.5 pl-4 border-l border-slate-200">
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
@@ -125,6 +127,19 @@ export default function App() {
 
               <button
                 type="button"
+                onClick={() => setCurrentTab('privacy')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                  currentTab === 'privacy'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Quyền riêng tư</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCurrentTab('profile')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'profile'
@@ -133,7 +148,7 @@ export default function App() {
                 }`}
               >
                 <UserCog className="w-4 h-4" />
-                <span>Hồ sơ cá nhân</span>
+                <span>Hồ sơ</span>
               </button>
             </nav>
           </div>
@@ -169,11 +184,11 @@ export default function App() {
         </div>
 
         {/* Mobile Navigation Bar */}
-        <div className="sm:hidden flex border-t border-slate-100 bg-white px-4 py-1.5 gap-2">
+        <div className="md:hidden flex border-t border-slate-100 bg-white px-2 py-1.5 gap-1 overflow-x-auto">
           <button
             type="button"
             onClick={() => setCurrentTab('dashboard')}
-            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'dashboard' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
             }`}
           >
@@ -182,7 +197,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setCurrentTab('family')}
-            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'family' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
             }`}
           >
@@ -190,8 +205,17 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setCurrentTab('privacy')}
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+              currentTab === 'privacy' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }`}
+          >
+            Riêng tư
+          </button>
+          <button
+            type="button"
             onClick={() => setCurrentTab('profile')}
-            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'profile' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
             }`}
           >
@@ -206,7 +230,6 @@ export default function App() {
         <InvitationBanner 
           currentUser={currentUser} 
           onFamilyUpdated={() => {
-            // Khi accept lời mời, có thể tự động chuyển sang tab family để xem
             setCurrentTab('family');
           }} 
         />
@@ -221,10 +244,16 @@ export default function App() {
           <FamilyPage
             currentUser={currentUser}
             onBack={() => setCurrentTab('dashboard')}
+            onNavigateToPrivacy={() => setCurrentTab('privacy')}
+          />
+        ) : currentTab === 'privacy' ? (
+          <PrivacyMatrixPage
+            currentUser={currentUser}
+            onBack={() => setCurrentTab('dashboard')}
           />
         ) : (
           <div className="space-y-6">
-            {/* Banner chào mừng & Quick link sang Profile */}
+            {/* Banner chào mừng & Quick link */}
             <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-3">
@@ -235,7 +264,7 @@ export default function App() {
                   Xin chào, {currentUser.fullName || 'bạn'}! 👋
                 </h2>
                 <p className="mt-2 text-slate-600 text-sm leading-relaxed">
-                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất trong mục Hồ sơ hoặc thiết lập nhóm Gia đình để cùng người thân theo dõi sức khỏe.
+                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất trong mục Hồ sơ, quản lý các nhóm Gia đình hoặc thiết lập quyền riêng tư dữ liệu sức khỏe.
                 </p>
               </div>
 
@@ -307,10 +336,22 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
-                <Shield className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Phân quyền riêng tư</h4>
-                <p className="text-xs text-slate-500 mt-1">Bật/tắt ai được xem chỉ số nào (Default Deny).</p>
+              <div 
+                onClick={() => setCurrentTab('privacy')}
+                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <ShieldCheck className="w-6 h-6 text-teal-600" />
+                  <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Bảo mật
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  Phân quyền riêng tư
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Ma trận bật/tắt ai được xem chỉ số nào (Nguyên tắc Default Deny).
+                </p>
               </div>
             </div>
           </div>
@@ -323,7 +364,6 @@ export default function App() {
         isOpen={isUrlModalOpen}
         onClose={() => {
           setIsUrlModalOpen(false);
-          // Xóa query param trên URL mà không reload trang
           const url = new URL(window.location);
           url.searchParams.delete('inviteToken');
           url.searchParams.delete('invitation');

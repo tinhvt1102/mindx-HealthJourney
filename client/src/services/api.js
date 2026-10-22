@@ -125,4 +125,15 @@ export const invitationService = {
   },
 };
 
+export const policyService = {
+  getPolicies: async (familyId) => {
+    const res = await api.get(`/families/${familyId}/policies`);
+    return res.data;
+  },
+  updatePolicies: async (familyId, data) => {
+    const res = await api.put(`/families/${familyId}/policies`, data);
+    return res.data;
+  },
+};
+
 export default api;
