@@ -264,6 +264,18 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
     }
   };
 
+  // Xác định vai trò của currentUser trong nhóm đang chọn
+  const selectedFamily = families.find((f) => f._id === selectedFamilyId);
+  const currentUserId = currentUser?._id || currentUser?.id;
+  const isCurrentAdminOfSelectedFamily =
+    selectedFamily &&
+    ((selectedFamily.createdBy?._id || selectedFamily.createdBy) === currentUserId ||
+      selectedFamily.members?.some(
+        (m) =>
+          (m.userId?._id === currentUserId || m.userId === currentUserId) &&
+          m.role === 'ADMIN'
+      ));
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -279,7 +291,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
               </h1>
             </div>
             <p className="text-sm text-slate-600 mt-1 leading-relaxed max-w-2xl">
-              Quản lý ai trong gia đình được phép xem dữ liệu sức khỏe <strong>CỦA BẠN</strong>. Dữ liệu thuộc quyền sở hữu cá nhân và áp dụng nguyên tắc <strong>Từ chối mặc định (Default Deny)</strong>.
+              Quản lý ai trong gia đình được phép xem dữ liệu sức khỏe của bạn. Dữ liệu thuộc quyền sở hữu cá nhân và áp dụng nguyên tắc Từ chối mặc định (Default Deny).
             </p>
           </div>
         </div>
@@ -321,6 +333,33 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
           </button>
         </div>
       </div>
+
+      {/* Card thông tin chính chủ (User Profile Overview) */}
+      {currentUser && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+              {(currentUser.fullName || currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-900 text-base truncate">
+                  {currentUser.fullName || currentUser.name || 'Người dùng'}
+                </span>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60 shrink-0">
+                  {isCurrentAdminOfSelectedFamily ? 'Trưởng nhóm' : 'Thành viên'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium truncate mt-0.5">{currentUser.email}</p>
+            </div>
+          </div>
+          <div className="md:text-right border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
+            <p className="text-xs text-slate-600 leading-relaxed max-w-md">
+              Dữ liệu sức khỏe cá nhân của bạn. Chọn những chỉ số bạn muốn chia sẻ với các thành viên khác trong gia đình.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Thông báo Feedback */}
       {successMessage && (
@@ -417,9 +456,9 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
           {/* Quick batch action toolbar */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600">
-              <Shield className="w-4 h-4 text-teal-600" />
+              <Shield className="w-4 h-4 text-teal-600 shrink-0" />
               <span>
-                Đang cài đặt quyền cho phép <strong>{matrix.length}</strong> người thân xem dữ liệu <strong>CỦA BẠN</strong> trong nhóm{' '}
+                Đang cài đặt quyền cho phép <strong>{matrix.length}</strong> người thân xem dữ liệu của bạn trong nhóm{' '}
                 <strong className="text-slate-900">"{selectedFamilyName}"</strong>
               </span>
             </div>
@@ -450,33 +489,30 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-600 uppercase tracking-wider">
                     <th className="py-4 px-6 min-w-[220px]">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                          NGƯỜI THÂN ĐƯỢC CẤP QUYỀN XEM
+                        <span className="font-bold text-slate-800 text-xs normal-case">
+                          Thành viên nhận chia sẻ
                         </span>
-                        <span className="text-[11px] font-normal text-slate-500 lowercase first-letter:uppercase">
-                          (Ai được xem dữ liệu của bạn?)
+                        <span className="text-[11px] font-normal text-slate-500 normal-case">
+                          (Người được bạn cho phép xem)
                         </span>
                       </div>
                     </th>
                     {HEALTH_METRICS.map((metric) => {
                       const IconComponent = metric.icon;
                       return (
-                        <th key={metric.key} className="py-4 px-4 text-center min-w-[110px]">
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200/60 px-1.5 py-0.5 rounded uppercase tracking-tight">
-                              Cho xem
-                            </span>
-                            <span className={`p-1.5 rounded-lg ${metric.bgColor} ${metric.color}`}>
+                        <th key={metric.key} className="py-4 px-3 text-center min-w-[105px]">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${metric.bgColor} ${metric.color}`}>
                               <IconComponent className="w-4 h-4" />
                             </span>
-                            <span className="font-bold text-slate-800 text-[11px]">
+                            <span className="font-semibold text-slate-700 text-xs normal-case">
                               {metric.label}
                             </span>
                           </div>
                         </th>
                       );
                     })}
-                    <th className="py-4 px-4 text-center min-w-[120px]">Thao tác nhanh</th>
+                    <th className="py-4 px-4 text-center min-w-[120px] normal-case">Thao tác nhanh</th>
                   </tr>
                 </thead>
 
@@ -524,7 +560,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                                 }`}
                                 role="switch"
                                 aria-checked={isEnabled}
-                                title={`${isEnabled ? 'Đang cho phép' : 'Đang chặn'} ${member.viewerName} xem chỉ số ${metric.label} CỦA BẠN`}
+                                title={`${isEnabled ? 'Đang cho phép' : 'Đang chặn'} ${member.viewerName} xem chỉ số ${metric.label} của bạn`}
                               >
                                 <span
                                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
@@ -544,7 +580,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                               onClick={() => handleAllowAllForViewer(member.viewerId)}
                               disabled={isAllAllowed}
                               className="px-2 py-1 rounded text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title={`Cho phép ${member.viewerName} xem toàn bộ chỉ số CỦA BẠN`}
+                              title={`Cho phép ${member.viewerName} xem toàn bộ chỉ số của bạn`}
                             >
                               Tất cả
                             </button>
@@ -553,7 +589,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                               onClick={() => handleRevokeAllForViewer(member.viewerId)}
                               disabled={isAllDenied}
                               className="px-2 py-1 rounded text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title={`Chặn ${member.viewerName} xem mọi chỉ số CỦA BẠN`}
+                              title={`Chặn ${member.viewerName} xem mọi chỉ số của bạn`}
                             >
                               Tắt hết
                             </button>
