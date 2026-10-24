@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Mail, 
@@ -118,7 +118,7 @@ export default function InvitationModal({
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Duyệt lời mời tham gia nhóm</h3>
+              <h3 className="font-bold text-slate-900 text-base">Lời mời tham gia gia đình</h3>
               <p className="text-xs text-slate-500">Mời gia nhập không gian sức khỏe gia đình</p>
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function InvitationModal({
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-start gap-2.5 leading-relaxed">
                 <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 <p>
-                  Khi gia nhập, các thành viên trong nhóm sẽ có thể xem tên và cùng bạn theo dõi sức khỏe theo cài đặt chia sẻ riêng tư.
+                  Khi tham gia, bạn và người thân có thể cùng nhau theo dõi sức khỏe. Bạn có toàn quyền chọn những chỉ số muốn chia sẻ.
                 </p>
               </div>
 

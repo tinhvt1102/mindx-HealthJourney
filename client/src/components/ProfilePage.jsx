@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Mail, 
@@ -131,14 +131,14 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
       const res = await authService.uploadAvatar(file);
       if (res.success && res.avatarUrl) {
         setAvatar(res.avatarUrl);
-        setSuccessMessage('Tải ảnh đại diện lên Cloudinary thành công!');
+        setSuccessMessage('Cập nhật ảnh đại diện thành công!');
         if (onUpdateUser && res.user) {
           onUpdateUser(res.user);
         }
         setTimeout(() => setSuccessMessage(''), 4000);
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Lỗi khi upload ảnh lên Cloudinary.');
+      setErrorMessage(err.response?.data?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
     } finally {
       setUploadingAvatar(false);
     }
@@ -279,7 +279,7 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Hồ sơ cá nhân</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Cập nhật thông tin thể chất để hệ thống theo dõi và phân tích chỉ số y tế chuẩn xác
+              Cập nhật thông tin thể trạng để theo dõi chỉ số sức khỏe chuẩn xác hơn
             </p>
           </div>
         </div>
@@ -311,7 +311,7 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
               className="absolute inset-0 bg-slate-900/60 text-white rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed"
-              title="Tải ảnh lên Cloudinary"
+              title="Thay đổi ảnh đại diện"
             >
               {uploadingAvatar ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

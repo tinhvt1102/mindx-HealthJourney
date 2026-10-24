@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Shield, 
@@ -250,7 +250,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
 
       const res = await policyService.updatePolicies(selectedFamilyId, payload);
       if (res.success) {
-        setSuccessMessage('Đã lưu thành công cài đặt quyền riêng tư!');
+        setSuccessMessage('Đã lưu cài đặt chia sẻ thành công!');
         setOriginalMatrix(JSON.parse(JSON.stringify(matrix)));
         setHasUnsavedChanges(false);
       }
@@ -287,11 +287,11 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900">
-                Ma trận quyền riêng tư (Privacy Matrix)
+                Quyền riêng tư & Chia sẻ
               </h1>
             </div>
             <p className="text-sm text-slate-600 mt-1 leading-relaxed max-w-2xl">
-              Quản lý ai trong gia đình được phép xem dữ liệu sức khỏe của bạn. Dữ liệu thuộc quyền sở hữu cá nhân và áp dụng nguyên tắc Từ chối mặc định (Default Deny).
+              Chủ động chọn những người thân được xem chỉ số sức khỏe của bạn. Dữ liệu cá nhân luôn được giữ kín, chỉ chia sẻ khi bạn cho phép.
             </p>
           </div>
         </div>
@@ -434,7 +434,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
       ) : matrixLoading ? (
         <div className="py-16 text-center text-slate-500 space-y-3 bg-white rounded-2xl border border-slate-200/80">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-teal-600" />
-          <p className="text-sm font-medium">Đang tải ma trận phân quyền...</p>
+          <p className="text-sm font-medium">Đang tải cài đặt chia sẻ...</p>
         </div>
       ) : matrix.length === 0 ? (
         /* Nhóm chỉ có 1 mình owner, chưa có thành viên khác */
@@ -469,14 +469,14 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                 onClick={handleAllowAllGlobal}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold cursor-pointer transition-colors"
               >
-                Cho phép tất cả
+                Chia sẻ tất cả
               </button>
               <button
                 type="button"
                 onClick={handleResetToDefaultDeny}
                 className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold cursor-pointer transition-colors"
               >
-                Tắt toàn bộ (Default Deny)
+                Tắt chia sẻ tất cả
               </button>
             </div>
           </div>
@@ -490,10 +490,10 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
                     <th className="py-4 px-6 min-w-[220px]">
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-800 text-xs normal-case">
-                          Thành viên nhận chia sẻ
+                          Thành viên gia đình
                         </span>
                         <span className="text-[11px] font-normal text-slate-500 normal-case">
-                          (Người được bạn cho phép xem)
+                          (Người nhận chia sẻ)
                         </span>
                       </div>
                     </th>
@@ -608,10 +608,10 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
             <ShieldCheck className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold text-teal-950 mb-0.5">
-                Cơ chế bảo vệ dữ liệu sức khỏe (Default Deny)
+                Bảo mật thông tin sức khỏe
               </h4>
               <p className="text-teal-800">
-                Dữ liệu sức khỏe thuộc quyền sở hữu của chính bạn. Dù là Trưởng nhóm hay bất kỳ ai, người thân chỉ có thể xem được những chỉ số mà bạn đã chủ động bật công tắc chia sẻ tại bảng này.
+                Dữ liệu sức khỏe luôn là của riêng bạn. Ngay cả trưởng nhóm cũng chỉ thấy những chỉ số mà bạn chủ động bật công tắc chia sẻ ở danh sách trên.
               </p>
             </div>
           </div>

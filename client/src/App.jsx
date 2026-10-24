@@ -268,13 +268,13 @@ export default function App() {
               <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-3">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  Hệ thống hoạt động bình thường
+                  Chăm sóc sức khỏe mỗi ngày
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900">
                   Xin chào, {displayName}! 👋
                 </h2>
                 <p className="mt-2 text-slate-600 text-sm leading-relaxed">
-                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất trong mục Hồ sơ, quản lý các nhóm Gia đình hoặc thiết lập quyền riêng tư dữ liệu sức khỏe.
+                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Hãy theo dõi các chỉ số sức khỏe đều đặn, cập nhật thông tin thể trạng và kết nối cùng các thành viên trong gia đình.
                 </p>
               </div>
 
@@ -296,7 +296,7 @@ export default function App() {
                 <div className="text-2xl font-bold text-slate-900 mt-1">
                   {currentUser.heightCm ? `${currentUser.heightCm} cm` : 'Chưa thiết lập'}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Chuẩn tính chỉ số BMI cơ thể</p>
+                <p className="text-xs text-slate-400 mt-1">Căn cứ theo dõi thể trạng & BMI</p>
               </div>
 
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -304,7 +304,7 @@ export default function App() {
                 <div className="text-2xl font-bold text-slate-900 mt-1">
                   {currentUser.gender === 'MALE' ? 'Nam (♂)' : currentUser.gender === 'FEMALE' ? 'Nữ (♀)' : 'Khác (⚧)'}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Khung tham chiếu y tế</p>
+                <p className="text-xs text-slate-400 mt-1">Thông tin hồ sơ y tế</p>
               </div>
 
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -314,7 +314,7 @@ export default function App() {
                     ? new Date(currentUser.birthDate).toLocaleDateString('vi-VN') 
                     : 'Chưa cập nhật'}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Tính toán phân nhóm tuổi</p>
+                <p className="text-xs text-slate-400 mt-1">Theo dõi theo độ tuổi</p>
               </div>
             </div>
 
@@ -339,7 +339,7 @@ export default function App() {
                   Không gian Gia đình
                 </h4>
                 <p className="text-xs text-slate-600 mt-1">
-                  Mời người thân qua Email, duyệt lời mời bằng Token và quản lý thành viên.
+                  Mời người thân tham gia để cùng theo dõi và quan tâm sức khỏe của cả nhà.
                 </p>
               </div>
 
@@ -354,10 +354,10 @@ export default function App() {
                   </span>
                 </div>
                 <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
-                  Phân quyền riêng tư
+                  Quyền riêng tư & Chia sẻ
                 </h4>
                 <p className="text-xs text-slate-600 mt-1">
-                  Ma trận bật/tắt ai được xem chỉ số nào (Nguyên tắc Default Deny).
+                  Chủ động chọn những người thân được phép xem từng chỉ số của bạn.
                 </p>
               </div>
             </div>

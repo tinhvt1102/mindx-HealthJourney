@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Heart, 
   ShieldCheck, 
@@ -85,7 +85,7 @@ export default function AuthPage({ onLoginSuccess }) {
           setIsOtpStep(true);
           setCountdown(60);
           setCanResend(false);
-          setSuccessMessage('Mã OTP đã được tạo! Vui lòng kiểm tra email (hoặc Terminal backend).');
+          setSuccessMessage('Mã xác thực đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.');
         } else {
           localStorage.setItem('health_token', data.token);
           localStorage.setItem('health_user', JSON.stringify(data.user));
@@ -165,7 +165,7 @@ export default function AuthPage({ onLoginSuccess }) {
               <span className="text-teal-300">sức khỏe gia đình.</span>
             </h1>
             <p className="mt-4 text-teal-100/80 text-sm leading-relaxed">
-              Theo dõi huyết áp, đường huyết, tim mạch với xác thực OTP bảo mật và cơ chế phân quyền riêng tư tuyệt đối.
+              Theo dõi huyết áp, đường huyết, cân nặng mỗi ngày, kết nối gia đình và chủ động chia sẻ an toàn.
             </p>
           </div>
 
@@ -175,8 +175,8 @@ export default function AuthPage({ onLoginSuccess }) {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">Xác thực OTP Email</h4>
-                <p className="text-xs text-teal-200/70 mt-0.5">Bảo vệ tài khoản và danh tính y tế an toàn.</p>
+                <h4 className="text-sm font-semibold text-white">Bảo mật tài khoản</h4>
+                <p className="text-xs text-teal-200/70 mt-0.5">Xác thực qua email giúp bảo vệ thông tin sức khỏe của bạn.</p>
               </div>
             </div>
 
@@ -186,7 +186,7 @@ export default function AuthPage({ onLoginSuccess }) {
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white">Gia đình cùng kết nối</h4>
-                <p className="text-xs text-teal-200/70 mt-0.5">Cảnh báo màu khi có chỉ số huyết áp bất thường.</p>
+                <p className="text-xs text-teal-200/70 mt-0.5">Cảnh báo sớm khi người thân có chỉ số vượt mức an toàn.</p>
               </div>
             </div>
 
@@ -195,8 +195,8 @@ export default function AuthPage({ onLoginSuccess }) {
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">AI tóm tắt xu hướng</h4>
-                <p className="text-xs text-teal-200/70 mt-0.5">Trợ lý Gemini giải thích biến động chỉ số hàng tuần.</p>
+                <h4 className="text-sm font-semibold text-white">Theo dõi xu hướng</h4>
+                <p className="text-xs text-teal-200/70 mt-0.5">Biểu đồ trực quan giúp bạn nắm bắt biến động chỉ số hàng tuần.</p>
               </div>
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function AuthPage({ onLoginSuccess }) {
                     <KeyRound className="w-6 h-6" />
                   </div>
                   <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                    Xác thực mã OTP
+                    Xác thực tài khoản
                   </h2>
                   <p className="mt-1.5 text-sm text-slate-500">
                     Mã xác thực gồm 6 chữ số đã được gửi tới email <br />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -224,7 +224,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Quản lý nhóm Gia đình</h1>
             <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-              Mời người thân tham gia nhóm để cùng theo dõi sức khỏe và bảo vệ dữ liệu theo phân quyền.
+              Mời người thân tham gia nhóm để cùng theo dõi sức khỏe và chăm sóc lẫn nhau.
             </p>
           </div>
         </div>
@@ -238,7 +238,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
               title="Thiết lập quyền xem chỉ số cho các thành viên"
             >
               <ShieldCheck className="w-4 h-4 text-teal-600" />
-              <span>Phân quyền riêng tư</span>
+              <span>Cài đặt chia sẻ</span>
             </button>
           )}
 
@@ -315,7 +315,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm transition-all"
                 maxLength={50}
               />
-              <p className="text-xs text-slate-500 mt-1">Từ 3 đến 50 ký tự. Bạn sẽ tự động là Quản trị viên (Admin) của nhóm.</p>
+              <p className="text-xs text-slate-500 mt-1">Từ 3 đến 50 ký tự. Bạn sẽ là người quản lý nhóm này.</p>
             </div>
             <div className="flex justify-end gap-3">
               <button
@@ -353,7 +353,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
           <div className="max-w-md mx-auto space-y-2">
             <h3 className="text-lg font-bold text-slate-900">Bạn chưa tham gia nhóm gia đình nào</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Hãy tạo một nhóm gia đình mới để mời người thân, hoặc duyệt lời mời nếu bạn nhận được mã từ người khác.
+              Hãy tạo một nhóm mới để mời người thân cùng theo dõi sức khỏe, hoặc nhập mã nếu bạn đã nhận được lời mời.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -369,7 +369,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
           {/* Ô nhập mã lời mời thủ công cho Member */}
           <div className="pt-8 border-t border-slate-100 max-w-md mx-auto text-left">
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Bạn có mã token lời mời từ người thân?
+              Bạn nhận được mã tham gia nhóm từ người thân?
             </label>
             <form onSubmit={handleReviewManualToken} className="flex gap-2">
               <input
@@ -437,17 +437,17 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
             {/* Ô duyệt mã lời mời bằng token trực tiếp */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
               <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                Duyệt lời mời bằng mã Token
+                Tham gia bằng mã lời mời
               </span>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Nếu bạn nhận được mã token từ liên kết mời hoặc qua tin nhắn, hãy dán vào đây:
+                Nếu người thân gửi cho bạn mã tham gia nhóm, hãy nhập mã vào đây:
               </p>
               <form onSubmit={handleReviewManualToken} className="space-y-2">
                 <input
                   type="text"
                   value={manualToken}
                   onChange={(e) => setManualToken(e.target.value)}
-                  placeholder="Dán mã 64 ký tự hex..."
+                  placeholder="Dán mã lời mời vào đây..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
                 <button
@@ -455,7 +455,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                   disabled={!manualToken.trim()}
                   className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-colors"
                 >
-                  Kiểm tra & Gia nhập
+                  Kiểm tra mã
                 </button>
               </form>
             </div>
@@ -479,7 +479,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                         {isCurrentAdmin() && (
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 flex items-center gap-1">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            Bạn là Admin
+                            Trưởng nhóm
                           </span>
                         )}
                       </div>
