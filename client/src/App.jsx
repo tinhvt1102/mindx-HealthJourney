@@ -35,26 +35,41 @@ export default function App() {
       setIsUrlModalOpen(true);
     }
 
+    const token = localStorage.getItem('health_token');
     const savedUser = localStorage.getItem('health_user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('health_user');
-      }
+
+    // Bắt buộc phải có cả token và thông tin user thì mới coi là đã đăng nhập hợp lệ
+    if (!token || !savedUser) {
+      localStorage.removeItem('health_token');
+      localStorage.removeItem('health_user');
+      setCurrentUser(null);
+      return;
     }
 
-    const token = localStorage.getItem('health_token');
-    if (token) {
-      authService.getMe()
-        .then((res) => {
-          if (res?.user) {
-            setCurrentUser(res.user);
-            localStorage.setItem('health_user', JSON.stringify(res.user));
-          }
-        })
-        .catch(() => {});
+    try {
+      setCurrentUser(JSON.parse(savedUser));
+    } catch (e) {
+      localStorage.removeItem('health_token');
+      localStorage.removeItem('health_user');
+      setCurrentUser(null);
+      return;
     }
+
+    // Đồng bộ lại dữ liệu mới nhất từ server
+    authService.getMe()
+      .then((res) => {
+        if (res?.user) {
+          setCurrentUser(res.user);
+          localStorage.setItem('health_user', JSON.stringify(res.user));
+        }
+      })
+      .catch((err) => {
+        if (err.response?.status === 401) {
+          localStorage.removeItem('health_token');
+          localStorage.removeItem('health_user');
+          setCurrentUser(null);
+        }
+      });
   }, []);
 
   const handleLogout = () => {
