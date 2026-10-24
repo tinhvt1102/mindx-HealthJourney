@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import { protect } from '../middlewares/auth.middleware.js';
 import { validateInviteMember } from '../middlewares/invitationValidation.middleware.js';
 import { inviteMember } from '../controllers/invitation.controller.js';
@@ -6,6 +6,9 @@ import {
   createFamily,
   getFamilyById,
   getMyFamilies,
+  updateFamily,
+  deleteFamily,
+  removeMember,
 } from '../controllers/family.controller.js';
 import {
   getFamilySharingPolicies,
@@ -25,7 +28,12 @@ router.route('/')
   .get(getMyFamilies);
 
 router.route('/:id')
-  .get(getFamilyById);
+  .get(getFamilyById)
+  .put(updateFamily)
+  .delete(deleteFamily);
+
+// Xóa thành viên hoặc thành viên tự rời nhóm (SCRUM-34)
+router.delete('/:id/members/:memberId', removeMember);
 
 // Endpoint gửi lời mời theo ticket SCRUM-38
 router.post('/:id/invite', validateInviteMember, inviteMember);

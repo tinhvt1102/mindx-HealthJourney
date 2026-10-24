@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { 
   Users, 
-  UserPlus, 
+  UserPlus, UserMinus, Trash2, 
   Shield, 
   ShieldCheck, 
   Mail, 
@@ -203,6 +203,40 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
     navigator.clipboard.writeText(inviteUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  // Xóa thành viên khỏi nhóm gia đình (SCRUM-34)
+  const handleRemoveMember = async (memberUserId, memberName) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa "${memberName}" khỏi nhóm gia đình này không?`)) return;
+    try {
+      const res = await familyService.removeMember(selectedFamilyId, memberUserId);
+      if (res.success) {
+        setSuccessMessage(`Đã xóa "${memberName}" khỏi nhóm gia đình.`);
+        fetchFamilies();
+        const updated = await familyService.getById(selectedFamilyId);
+        if (updated.success) setCurrentFamily(updated.family);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Không thể xóa thành viên.');
+    }
+  };
+
+  // Giải tán nhóm gia đình (SCRUM-34)
+  const handleDeleteFamily = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${currentFamily?.name}" không? Tất cả quyền chia sẻ sẽ bị hủy bỏ.`)) return;
+    try {
+      const res = await familyService.delete(selectedFamilyId);
+      if (res.success) {
+        setSuccessMessage('Đã giải tán nhóm gia đình thành công.');
+        setSelectedFamilyId(null);
+        setCurrentFamily(null);
+        fetchFamilies();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Không thể giải tán nhóm gia đình.');
+    }
   };
 
   // Xử lý kiểm tra mã lời mời thủ công
