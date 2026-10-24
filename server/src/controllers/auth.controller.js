@@ -1,23 +1,18 @@
-import jwt from 'jsonwebtoken';
+﻿import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { sendOtpEmail } from '../services/email.service.js';
 
-// Helper sinh JWT token
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };
 
-// Helper sinh mã OTP 6 số ngẫu nhiên
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// @desc    Đăng ký tài khoản & gửi mã OTP qua Email
-// @route   POST /api/v1/auth/register
-// @access  Public
 export const register = async (req, res) => {
   try {
     const { email, password, fullName, name } = req.body;
@@ -37,7 +32,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Kiểm tra email đã tồn tại chưa
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({
@@ -46,11 +40,9 @@ export const register = async (req, res) => {
       });
     }
 
-    // Băm mật khẩu
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Sinh mã OTP 6 số (hết hạn trong 10 phút)
     const otpCode = generateOtp();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -66,7 +58,6 @@ export const register = async (req, res) => {
       },
     });
 
-    // Gửi email OTP (hoặc in ra Terminal nếu ở chế độ DEV)
     await sendOtpEmail(newUser.email, otpCode);
 
     return res.status(201).json({
@@ -85,9 +76,6 @@ export const register = async (req, res) => {
   }
 };
 
-// @desc    Xác thực mã OTP để kích hoạt tài khoản & nhận Token
-// @route   POST /api/v1/auth/verify-otp
-// @access  Public
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -99,7 +87,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Tìm user và lấy kèm trường otp
     const user = await User.findOne({ email: email.toLowerCase() }).select('+otp.code +otp.expiresAt');
     if (!user) {
       return res.status(404).json({
@@ -108,7 +95,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Kiểm tra mã OTP
     if (!user.otp || !user.otp.code) {
       return res.status(400).json({
         success: false,
@@ -130,7 +116,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Kích hoạt tài khoản thành công
     user.isVerified = true;
     user.otp = undefined;
     await user.save();
@@ -145,13 +130,16 @@ export const verifyOtp = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name || user.fullName,
-        fullName: user.name || user.fullName,
+        fullName: user.fullName || user.name,
         avatar: user.avatar || user.avatarUrl,
-        avatarUrl: user.avatar || user.avatarUrl,
+        avatarUrl: user.avatarUrl || user.avatar,
         bio: user.bio,
         heightCm: user.heightCm,
+        weightKg: user.weightKg,
         birthDate: user.birthDate,
         gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
         isVerified: true,
       },
     });
@@ -165,9 +153,6 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-// @desc    Gửi lại mã OTP
-// @route   POST /api/v1/auth/resend-otp
-// @access  Public
 export const resendOtp = async (req, res) => {
   try {
     const { email } = req.body;
@@ -203,9 +188,6 @@ export const resendOtp = async (req, res) => {
   }
 };
 
-// @desc    Đăng nhập
-// @route   POST /api/v1/auth/login
-// @access  Public
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -248,8 +230,11 @@ export const login = async (req, res) => {
         avatarUrl: user.avatar || user.avatarUrl,
         bio: user.bio,
         heightCm: user.heightCm,
+        weightKg: user.weightKg,
         birthDate: user.birthDate,
         gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
         isVerified: user.isVerified,
       },
     });
@@ -263,9 +248,6 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Lấy thông tin tài khoản đang đăng nhập
-// @route   GET /api/v1/auth/me
-// @access  Private (Cần Bearer Token)
 export const getMe = async (req, res) => {
   return res.status(200).json({
     success: true,
@@ -278,23 +260,23 @@ export const getMe = async (req, res) => {
       avatarUrl: req.user.avatar || req.user.avatarUrl,
       bio: req.user.bio,
       heightCm: req.user.heightCm,
+      weightKg: req.user.weightKg,
       birthDate: req.user.birthDate,
       gender: req.user.gender,
+      bloodType: req.user.bloodType,
+      bmi: req.user.bmi,
       isVerified: req.user.isVerified,
       createdAt: req.user.createdAt,
+      updatedAt: req.user.updatedAt,
     },
   });
 };
 
-// @desc    Cập nhật thông tin cá nhân (chiều cao, ngày sinh, giới tính, họ tên, bio, avatar...)
-// @route   PUT /api/v1/auth/profile
-// @access  Private (Cần Bearer Token)
 export const updateProfile = async (req, res) => {
   try {
-    const { heightCm, birthDate, gender, fullName, name, bio, avatar, avatarUrl } = req.body;
+    const { heightCm, weightKg, birthDate, gender, bloodType, fullName, name, bio, avatar, avatarUrl } = req.body;
     const user = req.user;
 
-    // Validate và cập nhật Chiều cao
     if (heightCm !== undefined && heightCm !== null && heightCm !== '') {
       const height = Number(heightCm);
       if (isNaN(height) || height < 50 || height > 250) {
@@ -306,7 +288,17 @@ export const updateProfile = async (req, res) => {
       user.heightCm = height;
     }
 
-    // Validate và cập nhật Ngày sinh
+    if (weightKg !== undefined && weightKg !== null && weightKg !== '') {
+      const weight = Number(weightKg);
+      if (isNaN(weight) || weight < 10 || weight > 300) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cân nặng phải là số hợp lệ từ 10kg đến 300kg',
+        });
+      }
+      user.weightKg = weight;
+    }
+
     if (birthDate !== undefined && birthDate !== null && birthDate !== '') {
       const parsedDate = new Date(birthDate);
       if (isNaN(parsedDate.getTime())) {
@@ -326,7 +318,6 @@ export const updateProfile = async (req, res) => {
       user.birthDate = undefined;
     }
 
-    // Validate và cập nhật Giới tính
     if (gender !== undefined && gender !== null && gender !== '') {
       const normalizedGender = gender.toString().toUpperCase();
       const validGenders = ['MALE', 'FEMALE', 'OTHER'];
@@ -339,19 +330,27 @@ export const updateProfile = async (req, res) => {
       user.gender = normalizedGender;
     }
 
-    // Cập nhật Họ và tên nếu có
-    const displayName = fullName || name;
-    if (displayName !== undefined && typeof displayName === 'string' && displayName.trim()) {
-      user.fullName = displayName.trim();
-      user.name = displayName.trim();
+    if (bloodType !== undefined && bloodType !== null && bloodType !== '') {
+      const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'];
+      if (!validBloodTypes.includes(bloodType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nhóm máu không hợp lệ (hỗ trợ: A+, A-, B+, B-, AB+, AB-, O+, O-, UNKNOWN)',
+        });
+      }
+      user.bloodType = bloodType;
     }
 
-    // Cập nhật Bio nếu có
-    if (bio !== undefined) {
-      user.bio = bio;
+    const resolvedName = (fullName !== undefined ? fullName : name);
+    if (resolvedName !== undefined && typeof resolvedName === 'string' && resolvedName.trim()) {
+      user.fullName = resolvedName.trim();
+      user.name = resolvedName.trim();
     }
 
-    // Cập nhật Ảnh đại diện nếu có
+    if (bio !== undefined && typeof bio === 'string') {
+      user.bio = bio.trim();
+    }
+
     const newAvatar = avatarUrl || avatar;
     if (newAvatar !== undefined && typeof newAvatar === 'string') {
       user.avatarUrl = newAvatar.trim();
@@ -372,10 +371,14 @@ export const updateProfile = async (req, res) => {
         avatarUrl: user.avatarUrl || user.avatar,
         bio: user.bio,
         heightCm: user.heightCm,
+        weightKg: user.weightKg,
         birthDate: user.birthDate,
         gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
         isVerified: user.isVerified,
         createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     });
   } catch (error) {

@@ -1,26 +1,40 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
+import FamilyPage from './components/FamilyPage';
+import PrivacyMatrixPage from './components/PrivacyMatrixPage';
+import InvitationBanner from './components/InvitationBanner';
+import InvitationModal from './components/InvitationModal';
 import { 
   Heart, 
   LogOut, 
   User, 
   Activity, 
   Users, 
+  ShieldCheck, 
   Shield, 
   UserCog, 
   LayoutDashboard, 
   ChevronRight,
-  ShieldCheck,
-  Ruler
+  UserPlus
 } from 'lucide-react';
 import { authService } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('profile'); // Mặc định mở Profile theo task
+  const [currentTab, setCurrentTab] = useState('dashboard');
+
+  const [urlInviteToken, setUrlInviteToken] = useState(null);
+  const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('inviteToken') || params.get('invitation');
+    if (tokenFromUrl) {
+      setUrlInviteToken(tokenFromUrl);
+      setIsUrlModalOpen(true);
+    }
+
     const savedUser = localStorage.getItem('health_user');
     if (savedUser) {
       try {
@@ -30,7 +44,6 @@ export default function App() {
       }
     }
 
-    // Đồng bộ thông tin mới nhất từ máy chủ nếu đã có token
     const token = localStorage.getItem('health_token');
     if (token) {
       authService.getMe()
@@ -40,9 +53,7 @@ export default function App() {
             localStorage.setItem('health_user', JSON.stringify(res.user));
           }
         })
-        .catch(() => {
-          // Token hết hạn thì interceptor đã xử lý
-        });
+        .catch(() => {});
     }
   }, []);
 
@@ -68,11 +79,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      {/* Top Navbar */}
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            {/* Logo */}
             <div 
               onClick={() => setCurrentTab('dashboard')}
               className="flex items-center gap-3 cursor-pointer group"
@@ -86,16 +95,15 @@ export default function App() {
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <nav className="hidden sm:flex items-center gap-1.5 pl-4 border-l border-slate-200">
+            <nav className="hidden md:flex items-center gap-1.5 pl-4 border-l border-slate-200">
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
+                }}
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Tổng quan</span>
@@ -103,28 +111,53 @@ export default function App() {
 
               <button
                 type="button"
+                onClick={() => setCurrentTab('family')}
+                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                  currentTab === 'family'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }}
+              >
+                <Users className="w-4 h-4" />
+                <span>Gia đình</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentTab('privacy')}
+                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                  currentTab === 'privacy'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Quyền riêng tư</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCurrentTab('profile')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'profile'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
+                }}
               >
                 <UserCog className="w-4 h-4" />
-                <span>Hồ sơ cá nhân</span>
+                <span>Hồ sơ</span>
               </button>
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* User Pill Button (Click để vào Profile) */}
             <button
               onClick={() => setCurrentTab('profile')}
-              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+              className={lex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
                 currentTab === 'profile'
                   ? 'bg-teal-50 border-teal-200 text-teal-800'
                   : 'bg-slate-100 border-slate-200/80 text-slate-700 hover:bg-slate-200/70'
-              }`}
+              }}
               title="Xem và chỉnh sửa hồ sơ cá nhân"
             >
               <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
@@ -139,7 +172,6 @@ export default function App() {
               </span>
             </button>
 
-            {/* Logout Button */}
             <button
               onClick={handleLogout}
               className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200 cursor-pointer"
@@ -150,40 +182,73 @@ export default function App() {
           </div>
         </div>
 
-        {/* Mobile Navigation Bar */}
-        <div className="sm:hidden flex border-t border-slate-100 bg-white px-4 py-1.5 gap-2">
+        <div className="md:hidden flex border-t border-slate-100 bg-white px-2 py-1.5 gap-1 overflow-x-auto">
           <button
             type="button"
             onClick={() => setCurrentTab('dashboard')}
-            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
+            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'dashboard' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }`}
+            }}
           >
             Tổng quan
           </button>
           <button
             type="button"
-            onClick={() => setCurrentTab('profile')}
-            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg ${
-              currentTab === 'profile' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }`}
+            onClick={() => setCurrentTab('family')}
+            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+              currentTab === 'family' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }}
           >
-            Hồ sơ cá nhân
+            Gia đình
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('privacy')}
+            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+              currentTab === 'privacy' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }}
+          >
+            Riêng tư
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('profile')}
+            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+              currentTab === 'profile' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }}
+          >
+            Hồ sơ
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <InvitationBanner 
+          currentUser={currentUser} 
+          onFamilyUpdated={() => {
+            setCurrentTab('family');
+          }} 
+        />
+
         {currentTab === 'profile' ? (
           <ProfilePage
             currentUser={currentUser}
             onUpdateUser={handleUpdateUser}
             onBack={() => setCurrentTab('dashboard')}
           />
+        ) : currentTab === 'family' ? (
+          <FamilyPage
+            currentUser={currentUser}
+            onBack={() => setCurrentTab('dashboard')}
+            onNavigateToPrivacy={() => setCurrentTab('privacy')}
+          />
+        ) : currentTab === 'privacy' ? (
+          <PrivacyMatrixPage
+            currentUser={currentUser}
+            onBack={() => setCurrentTab('dashboard')}
+          />
         ) : (
           <div className="space-y-6">
-            {/* Banner chào mừng & Quick link sang Profile */}
             <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-3">
@@ -194,29 +259,27 @@ export default function App() {
                   Xin chào, {displayName}! 👋
                 </h2>
                 <p className="mt-2 text-slate-600 text-sm leading-relaxed">
-                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất (chiều cao, ngày sinh, giới tính) trong mục Hồ sơ để các tính toán sức khỏe đạt độ chính xác tối ưu.
+                  Chào mừng bạn quay lại với <strong>HealthJourney</strong>. Bạn có thể cập nhật thông tin thể chất trong mục Hồ sơ, quản lý các nhóm Gia đình hoặc thiết lập quyền riêng tư dữ liệu sức khỏe.
                 </p>
               </div>
 
-              {/* Quick action card sang Profile */}
-              <div className="shrink-0">
+              <div className="shrink-0 flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={() => setCurrentTab('profile')}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  onClick={() => setCurrentTab('family')}
+                  className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <UserCog className="w-4 h-4" />
-                  <span>Cập nhật hồ sơ thể chất</span>
+                  <Users className="w-4 h-4" />
+                  <span>Quản lý Gia đình</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Thông tin tóm tắt chỉ số thể chất hiện tại */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">Chiều cao hiện tại</span>
                 <div className="text-2xl font-bold text-slate-900 mt-1">
-                  {currentUser.heightCm ? `${currentUser.heightCm} cm` : 'Chưa thiết lập'}
+                  {currentUser.heightCm ? ${currentUser.heightCm} cm : 'Chưa thiết lập'}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">Chuẩn tính chỉ số BMI cơ thể</p>
               </div>
@@ -240,27 +303,67 @@ export default function App() {
               </div>
             </div>
 
-            {/* Các Sprint tính năng tiếp theo */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
               <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
                 <Activity className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 1 - Chỉ số cá nhân</h4>
+                <h4 className="font-semibold text-slate-900">Chỉ số sức khỏe</h4>
                 <p className="text-xs text-slate-500 mt-1">Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết.</p>
               </div>
-              <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
-                <Users className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 2 - Nhóm Gia đình</h4>
-                <p className="text-xs text-slate-500 mt-1">Tạo Family và gửi lời mời người thân qua Email.</p>
+
+              <div 
+                onClick={() => setCurrentTab('family')}
+                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <Users className="w-6 h-6 text-teal-600" />
+                  <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Gia đình
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  Không gian Gia đình
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Mời người thân qua Email, duyệt lời mời bằng Token và quản lý thành viên.
+                </p>
               </div>
-              <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
-                <Shield className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Sprint 2 - Phân quyền riêng tư</h4>
-                <p className="text-xs text-slate-500 mt-1">Bật/tắt ai được xem chỉ số nào (Default Deny).</p>
+
+              <div 
+                onClick={() => setCurrentTab('privacy')}
+                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <ShieldCheck className="w-6 h-6 text-teal-600" />
+                  <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Bảo mật
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  Phân quyền riêng tư
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Ma trận bật/tắt ai được xem chỉ số nào (Nguyên tắc Default Deny).
+                </p>
               </div>
             </div>
           </div>
         )}
       </main>
+
+      <InvitationModal
+        token={urlInviteToken}
+        isOpen={isUrlModalOpen}
+        onClose={() => {
+          setIsUrlModalOpen(false);
+          const url = new URL(window.location);
+          url.searchParams.delete('inviteToken');
+          url.searchParams.delete('invitation');
+          window.history.replaceState({}, '', url);
+        }}
+        onSuccess={() => {
+          setCurrentTab('family');
+        }}
+      />
     </div>
   );
 }
