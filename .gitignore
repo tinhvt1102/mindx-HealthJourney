@@ -2,6 +2,7 @@
 node_modules/
 */node_modules/
 
+<<<<<<< HEAD
 # Environment Variables
 .env
 .env.local
@@ -11,11 +12,27 @@ client/.env
 
 # Logs
 logs
+=======
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build outputs
+dist/
+build/
+*/dist/
+
+# Logs
+logs/
+>>>>>>> origin/Hoang
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+<<<<<<< HEAD
 # Production build
 dist/
 build/
@@ -26,3 +43,8 @@ client/dist/
 Thumbs.db
 .vscode/
 .idea/
+=======
+# OS Files
+.DS_Store
+Thumbs.db
+>>>>>>> origin/Hoang

@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema(
@@ -11,12 +11,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Email không hợp lệ'],
     },
-    // Lưu mật khẩu băm với tên trường passwordHash theo Jira
     passwordHash: {
       type: String,
-      select: false, // Ẩn khi query thông thường
+      select: false,
     },
-    // Trường password dự phòng cho các tài khoản cũ
     password: {
       type: String,
       select: false,
@@ -46,6 +44,16 @@ const userSchema = new mongoose.Schema(
     heightCm: {
       type: Number,
       default: 170,
+      min: [50, 'Chiều cao tối thiểu là 50cm'],
+      max: [250, 'Chiều cao tối đa là 250cm'],
+    },
+    weightKg: {
+      type: Number,
+      min: [10, 'Cân nặng tối thiểu là 10kg'],
+      max: [300, 'Cân nặng tối đa là 300kg'],
+    },
+    birthDate: {
+      type: Date,
     },
     gender: {
       type: String,
@@ -53,12 +61,15 @@ const userSchema = new mongoose.Schema(
       uppercase: true,
       default: 'OTHER',
     },
-    // Trạng thái xác thực email OTP
+    bloodType: {
+      type: String,
+      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'],
+      default: 'UNKNOWN',
+    },
     isVerified: {
       type: Boolean,
       default: false,
     },
-    // Lưu mã OTP và thời gian hết hạn
     otp: {
       code: { type: String, select: false },
       expiresAt: { type: Date, select: false },
@@ -71,10 +82,16 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Tạo Index Unique cho email
+userSchema.virtual('bmi').get(function () {
+  if (this.heightCm && this.weightKg) {
+    const heightInMeters = this.heightCm / 100;
+    return Number((this.weightKg / (heightInMeters * heightInMeters)).toFixed(1));
+  }
+  return null;
+});
+
 userSchema.index({ email: 1 }, { unique: true });
 
-// So khớp mật khẩu đăng nhập
 userSchema.methods.comparePassword = async function (candidatePassword) {
   const hash = this.passwordHash || this.password;
   if (!hash) return false;

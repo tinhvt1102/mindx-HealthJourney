@@ -16,9 +16,12 @@ import {
   ArrowLeft,
   Info,
   Camera,
-  UploadCloud
+  UploadCloud,
+  Activity
 } from 'lucide-react';
-import { authService } from '../services/api';
+import { authService, healthRecordService } from '../services/api';
+import HealthRecordModal from './HealthRecordModal';
+import Human3DViewer from './Human3DViewer';
 
 export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   // Loading khi fetch dữ liệu từ server
@@ -34,88 +37,62 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Lưu trữ chỉ số sức khỏe mới nhất để truyền vào mô hình 3D (Huyết áp, Nhiệt độ, Cân nặng, Tim mạch)
+  const [latestMetrics, setLatestMetrics] = useState({});
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+
   // Form states
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [heightCm, setHeightCm] = useState(170);
   const [birthDate, setBirthDate] = useState('');
-  const [gender, setGender] = useState('OTHER');
+  const [gender, setGender] = useState('MALE');
 
-  // Lưu trữ dữ liệu gốc để so sánh có thay đổi không và để Reset
+  // Lưu bản snapshot dữ liệu ban đầu để kiểm tra dirty state (isFormChanged)
   const [originalData, setOriginalData] = useState({
     fullName: '',
-    email: '',
     heightCm: 170,
     birthDate: '',
-    gender: 'OTHER',
+    gender: 'MALE',
   });
 
-  // Helper format ngày YYYY-MM-DD cho input type="date"
-  const formatDateForInput = (dateVal) => {
-    if (!dateVal) return '';
-    try {
-      const d = new Date(dateVal);
-      if (isNaN(d.getTime())) return '';
-      return d.toISOString().split('T')[0];
-    } catch {
-      return '';
+  // Helper điền dữ liệu người dùng vào state
+  const populateFormData = (userData) => {
+    if (!userData) return;
+    const name = userData.fullName || userData.name || '';
+    const userEmail = userData.email || '';
+    const height = userData.heightCm || 170;
+    const userGender = userData.gender || 'MALE';
+    const userAvatar = userData.avatar || userData.avatarUrl || '';
+
+    let bDate = '';
+    if (userData.birthDate) {
+      try {
+        const d = new Date(userData.birthDate);
+        if (!isNaN(d.getTime())) {
+          bDate = d.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        bDate = '';
+      }
     }
+
+    setFullName(name);
+    setEmail(userEmail);
+    setHeightCm(height);
+    setGender(userGender);
+    setBirthDate(bDate);
+    if (userAvatar) setAvatar(userAvatar);
+
+    setOriginalData({
+      fullName: name,
+      heightCm: height,
+      birthDate: bDate,
+      gender: userGender,
+    });
   };
 
-  // Helper hiển thị ngày đẹp kiểu Việt Nam (DD/MM/YYYY)
-  const formatDateDisplay = (dateVal) => {
-    if (!dateVal) return 'Chưa cập nhật';
-    try {
-      const d = new Date(dateVal);
-      if (isNaN(d.getTime())) return 'Chưa cập nhật';
-      return d.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return 'Chưa cập nhật';
-    }
-  };
-
-  // Helper tính tuổi từ ngày sinh
-  const calculateAge = (dateVal) => {
-    if (!dateVal) return null;
-    const birth = new Date(dateVal);
-    if (isNaN(birth.getTime())) return null;
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age >= 0 ? age : null;
-  };
-
-  // Cập nhật state từ user object
-  const populateFormData = (user) => {
-    if (!user) return;
-    const formattedBirth = formatDateForInput(user.birthDate);
-    const data = {
-      fullName: user.fullName || '',
-      email: user.email || '',
-      heightCm: user.heightCm !== undefined && user.heightCm !== null ? user.heightCm : 170,
-      birthDate: formattedBirth,
-      gender: user.gender || 'OTHER',
-    };
-
-    setFullName(data.fullName);
-    setEmail(data.email);
-    setHeightCm(data.heightCm);
-    setBirthDate(data.birthDate);
-    setGender(data.gender);
-    setOriginalData(data);
-    if (user.avatar || user.avatarUrl) {
-      setAvatar(user.avatar || user.avatarUrl);
-    }
-  };
-
-  // Xử lý upload avatar lên Cloudinary
+  // Upload Avatar
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -131,14 +108,14 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
       const res = await authService.uploadAvatar(file);
       if (res.success && res.avatarUrl) {
         setAvatar(res.avatarUrl);
-        setSuccessMessage('Tải ảnh đại diện lên Cloudinary thành công!');
+        setSuccessMessage('Cập nhật ảnh đại diện thành công!');
         if (onUpdateUser && res.user) {
           onUpdateUser(res.user);
         }
         setTimeout(() => setSuccessMessage(''), 4000);
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Lỗi khi upload ảnh lên Cloudinary.');
+      setErrorMessage(err.response?.data?.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
     } finally {
       setUploadingAvatar(false);
     }
@@ -147,7 +124,6 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   // Lấy dữ liệu mới nhất từ server khi mount
   useEffect(() => {
     const fetchLatestProfile = async () => {
-      // Ưu tiên điền từ currentUser trước để không bị trống màn hình
       if (currentUser) {
         populateFormData(currentUser);
       }
@@ -158,6 +134,19 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
         if (res?.user) {
           populateFormData(res.user);
           if (onUpdateUser) onUpdateUser(res.user);
+        }
+
+        // Tải các chỉ số sức khỏe mới nhất để hiển thị trực quan lên mô hình 3D
+        const recRes = await healthRecordService.getAll();
+        if (recRes?.success && Array.isArray(recRes.data)) {
+          // Sắp xếp bản ghi mới nhất lên đầu
+          const sorted = [...recRes.data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+          setLatestMetrics({
+            bloodPressure: sorted.find((r) => r.type === 'BLOOD_PRESSURE'),
+            temperature: sorted.find((r) => r.type === 'TEMPERATURE'),
+            weight: sorted.find((r) => r.type === 'WEIGHT'),
+            heartRate: sorted.find((r) => r.type === 'HEART_RATE'),
+          });
         }
       } catch (err) {
         console.warn('Không thể đồng bộ dữ liệu mới nhất từ server:', err);
@@ -199,7 +188,6 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
     setErrorMessage('');
     setSuccessMessage('');
 
-    // Client-side validations
     const heightVal = Number(heightCm);
     if (isNaN(heightVal) || heightVal < 50 || heightVal > 250) {
       setErrorMessage('Chiều cao phải nằm trong khoảng từ 50cm đến 250cm.');
@@ -226,33 +214,54 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
       const res = await authService.updateProfile(payload);
       const updatedUser = res.user;
 
-      // Cập nhật dữ liệu gốc & UI
       populateFormData(updatedUser);
       
-      // Cập nhật lên App level và LocalStorage
       if (onUpdateUser) {
         onUpdateUser(updatedUser);
       }
       localStorage.setItem('health_user', JSON.stringify(updatedUser));
 
       setSuccessMessage('Cập nhật thông tin hồ sơ sức khỏe thành công!');
-      
-      // Tự ẩn thông báo sau 4 giây
-      setTimeout(() => {
-        setSuccessMessage('');
-      }, 4000);
+      setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
-      console.error('Update profile error:', err);
-      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin. Vui lòng thử lại sau.';
-      setErrorMessage(msg);
+      console.error('Lỗi khi cập nhật profile:', err);
+      setErrorMessage(
+        err.response?.data?.message || 'Không thể cập nhật hồ sơ. Vui lòng kiểm tra lại kết nối.'
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const calculatedAge = calculateAge(birthDate);
+  // Tính tuổi từ ngày sinh
+  const calculateAge = (dobString) => {
+    if (!dobString) return null;
+    const dob = new Date(dobString);
+    if (isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : null;
+  };
 
-  // Avatar Initial
+  // Định dạng ngày hiển thị dd/mm/yyyy
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return 'Chưa cập nhật';
+    try {
+      const [year, month, day] = dateStr.split('-');
+      if (year && month && day) {
+        return `${day}/${month}/${year}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const calculatedAge = calculateAge(birthDate);
   const avatarLetter = (fullName || email || 'U').charAt(0).toUpperCase();
 
   const genderLabels = {
@@ -262,15 +271,15 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in">
       
-      {/* Top Breadcrumb & Action bar */}
+      {/* Top Header & Breadcrumb */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              className="p-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shadow-2xs"
               title="Quay lại Tổng quan"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -279,471 +288,426 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Hồ sơ cá nhân</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Cập nhật thông tin thể chất để hệ thống theo dõi và phân tích chỉ số y tế chuẩn xác
+              Cập nhật thông tin thể trạng để mô hình 3D và các chỉ số sức khỏe hiển thị chuẩn xác nhất
             </p>
           </div>
         </div>
 
         {initialLoading && (
-          <div className="inline-flex items-center gap-2 text-xs text-teal-600 bg-teal-50 px-3 py-1.5 rounded-full">
+          <div className="inline-flex items-center gap-2 text-xs text-teal-600 bg-teal-50 px-3.5 py-1.5 rounded-full font-medium">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             Đang đồng bộ...
           </div>
         )}
       </div>
 
-      {/* HEADER CARD: Danh tính người dùng */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          {/* Avatar Cloudinary */}
-          <div className="relative group shrink-0">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center text-3xl font-extrabold shadow-lg shadow-teal-600/20 overflow-hidden border-2 border-white">
-              {avatar ? (
-                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                avatarLetter
-              )}
-            </div>
-
-            {/* Nút bấm đổi ảnh đại diện Cloudinary */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingAvatar}
-              className="absolute inset-0 bg-slate-900/60 text-white rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed"
-              title="Tải ảnh lên Cloudinary"
-            >
-              {uploadingAvatar ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <Camera className="w-5 h-5 mb-0.5" />
-                  <span className="text-[10px] font-medium">Đổi ảnh</span>
-                </>
-              )}
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
+      {/* Thông báo Feedback Alerts */}
+      {successMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 font-medium">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
           </div>
-
-          {/* User Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-xl font-bold text-slate-900 truncate">
-                {fullName || 'Chưa đặt họ tên'}
-              </h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200/60">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Đã xác thực
-              </span>
-            </div>
-
-            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5 truncate">
-              <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>{email}</span>
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 font-medium">
-                Giới tính: <strong className="text-slate-800">{genderLabels[gender]?.label || 'Khác'}</strong>
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 font-medium">
-                Chiều cao: <strong className="text-slate-800">{heightCm ? `${heightCm} cm` : 'Chưa nhập'}</strong>
-              </span>
-              {calculatedAge !== null && (
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 font-medium">
-                  Độ tuổi: <strong className="text-slate-800">{calculatedAge} tuổi</strong>
-                </span>
-              )}
-            </div>
-          </div>
+          <button 
+            type="button" 
+            onClick={() => setSuccessMessage('')}
+            className="text-emerald-500 hover:text-emerald-700 font-bold text-xs cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* 3 QUICK STATS CARDS: Thẻ tóm tắt chỉ số thể chất */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Card Chiều cao */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center shrink-0">
-            <Ruler className="w-5 h-5" />
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 font-medium">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
           </div>
-          <div>
-            <span className="text-xs font-medium text-slate-500 block uppercase tracking-wider">Chiều cao</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {heightCm ? (
-                <>
-                  {heightCm} <span className="text-sm font-normal text-slate-500">cm</span>
-                </>
-              ) : (
-                <span className="text-sm font-normal text-slate-400">Chưa nhập</span>
-              )}
-            </div>
-            <span className="text-[11px] text-teal-600 font-medium block mt-1">
-              {heightCm ? `${(heightCm / 100).toFixed(2)} m` : 'Khuyến nghị: 50-250cm'}
-            </span>
-          </div>
+          <button 
+            type="button" 
+            onClick={() => setErrorMessage('')}
+            className="text-rose-500 hover:text-rose-700 font-bold text-xs cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
+      )}
 
-        {/* Card Ngày sinh & Tuổi */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs font-medium text-slate-500 block uppercase tracking-wider">Ngày sinh & Tuổi</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5">
-              {calculatedAge !== null ? (
-                <>
-                  {calculatedAge} <span className="text-sm font-normal text-slate-500">tuổi</span>
-                </>
-              ) : (
-                <span className="text-sm font-normal text-slate-400">Chưa đặt</span>
-              )}
-            </div>
-            <span className="text-[11px] text-slate-500 block mt-1 truncate">
-              {formatDateDisplay(birthDate)}
-            </span>
-          </div>
-        </div>
-
-        {/* Card Giới tính sinh học */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-            <HeartPulse className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs font-medium text-slate-500 block uppercase tracking-wider">Giới tính</span>
-            <div className="text-xl font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
-              <span>{genderLabels[gender]?.label || 'Khác'}</span>
-              <span className="text-base text-slate-400 font-semibold">{genderLabels[gender]?.symbol}</span>
-            </div>
-            <span className="text-[11px] text-slate-500 block mt-1">
-              Chuẩn y khoa theo thể trạng
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* FORM CARD CẬP NHẬT CHIỀU CAO, NGÀY SINH, GIỚI TÍNH */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      {/* 2-COLUMN SPLIT LAYOUT: BÊN TRÁI LÀ MÔ HÌNH 3D, BÊN PHẢI LÀ THÔNG TIN & FORM */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Form Card Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
-              <Sparkles className="w-4 h-4" />
+        {/* CỘT TRÁI (5 Cols): MÔ HÌNH 3D NGƯỜI NAM / NỮ THEO CHỈ SỐ */}
+        <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+          <Human3DViewer
+            gender={gender}
+            heightCm={Number(heightCm) || 170}
+            onHeightChange={(newH) => setHeightCm(newH)}
+            fullName={fullName || 'Tôi'}
+            latestMetrics={latestMetrics}
+            onOpenLogModal={() => setIsLogModalOpen(true)}
+          />
+
+          {/* Card diễn giải tương tác 3D */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2 text-xs">
+            <div className="flex items-center gap-2 font-bold text-slate-800">
+              <Activity className="w-4 h-4 text-teal-600" />
+              <span>Phản hồi thể trạng thời gian thực</span>
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-base">Cập nhật thông tin thể chất</h3>
-              <p className="text-xs text-slate-500">
-                Nhập chính xác chiều cao, ngày sinh và giới tính để nhận kết quả phân tích y tế
-              </p>
-            </div>
+            <p className="text-slate-600 leading-relaxed text-[11px]">
+              Khi bạn thay đổi <strong>Chiều cao</strong> hoặc chuyển đổi <strong>Giới tính Nam / Nữ</strong> ở biểu mẫu bên phải, người mẫu 3D sẽ tự động biến đổi tỷ lệ khung xương và vóc dáng ngay lập tức.
+            </p>
           </div>
-
-          {isFormChanged && (
-            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 animate-pulse">
-              Có thay đổi chưa lưu
-            </span>
-          )}
         </div>
 
-        {/* Thông báo Thành công / Lỗi */}
-        <div className="px-6 pt-4">
-          {successMessage && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <span className="font-semibold block">Thành công!</span>
-                <span className="text-xs text-emerald-700">{successMessage}</span>
-              </div>
-            </div>
-          )}
-
-          {errorMessage && (
-            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <span className="font-semibold block">Đã có lỗi xảy ra!</span>
-                <span className="text-xs text-rose-700">{errorMessage}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* FORM BODY */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* CỘT PHẢI (7 Cols): HỒ SƠ & FORM CẬP NHẬT */}
+        <div className="lg:col-span-7 space-y-5">
           
-          {/* 1. CHIỀU CAO (HEIGHT CM) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start pt-2">
-            <div className="md:col-span-4">
-              <label htmlFor="heightInput" className="block text-sm font-semibold text-slate-800">
-                Chiều cao cơ thể
-              </label>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Đơn vị centimet (cm). Chiều cao cần thiết để tính toán chỉ số BMI và huyết áp tiêu chuẩn.
-              </p>
-            </div>
-
-            <div className="md:col-span-8">
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                {/* Input số */}
-                <div className="relative flex-1 min-w-[160px]">
-                  <input
-                    id="heightInput"
-                    type="number"
-                    min="50"
-                    max="250"
-                    step="1"
-                    required
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value)}
-                    className="w-full h-11 pl-4 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 text-sm font-semibold placeholder-slate-400 focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
-                    cm
-                  </div>
+          {/* HEADER CARD: Danh tính người dùng */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              {/* Avatar */}
+              <div className="relative group shrink-0">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center text-2xl font-extrabold shadow-md shadow-teal-600/20 overflow-hidden border-2 border-white">
+                  {avatar ? (
+                    <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    avatarLetter
+                  )}
                 </div>
 
-                {/* Các nút căn chỉnh nhanh */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60">
-                  <button
-                    type="button"
-                    onClick={() => adjustHeight(-5)}
-                    className="h-9 px-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer"
-                    title="Giảm 5cm"
-                  >
-                    -5
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => adjustHeight(-1)}
-                    className="h-9 px-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer"
-                    title="Giảm 1cm"
-                  >
-                    -1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => adjustHeight(1)}
-                    className="h-9 px-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer"
-                    title="Tăng 1cm"
-                  >
-                    +1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => adjustHeight(5)}
-                    className="h-9 px-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer"
-                    title="Tăng 5cm"
-                  >
-                    +5
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute inset-0 bg-slate-900/60 text-white rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer disabled:cursor-not-allowed"
+                  title="Thay đổi ảnh đại diện"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 mb-0.5" />
+                      <span className="text-[9px] font-medium">Đổi ảnh</span>
+                    </>
+                  )}
+                </button>
 
-              {/* Gợi ý quy chuẩn */}
-              <div className="flex items-center justify-between text-xs text-slate-400 mt-2 px-1">
-                <span>Tối thiểu: 50 cm</span>
-                <span>Tối đa: 250 cm</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100" />
-
-          {/* 2. NGÀY SINH (BIRTH DATE) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-            <div className="md:col-span-4">
-              <label htmlFor="birthDateInput" className="block text-sm font-semibold text-slate-800">
-                Ngày sinh
-              </label>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Hệ thống tự động tính độ tuổi để hiển thị ngưỡng nhịp tim và khuyến nghị dinh dưỡng phù hợp.
-              </p>
-            </div>
-
-            <div className="md:col-span-8 space-y-2">
-              <div className="relative">
                 <input
-                  id="birthDateInput"
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-slate-900 text-sm font-medium focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
                 />
               </div>
 
-              {calculatedAge !== null ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 text-xs font-medium">
-                  <Info className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Tuổi hiện tại tính theo ngày sinh: <strong>{calculatedAge} tuổi</strong></span>
+              {/* User Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-bold text-slate-900 truncate">
+                    {fullName || 'Chưa đặt họ tên'}
+                  </h2>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200/60">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Đã xác thực
+                  </span>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400">
-                  Vui lòng chọn ngày sinh để kích hoạt tính năng phân tích độ tuổi tự động.
+
+                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 truncate">
+                  <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>{email}</span>
                 </p>
-              )}
-            </div>
-          </div>
 
-          <div className="border-t border-slate-100" />
-
-          {/* 3. GIỚI TÍNH (GENDER) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-            <div className="md:col-span-4">
-              <label className="block text-sm font-semibold text-slate-800">
-                Giới tính sinh học
-              </label>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Yếu tố quyết định các khoảng tham chiếu y khoa (hồng cầu, khối lượng cơ, BMR).
-              </p>
-            </div>
-
-            <div className="md:col-span-8">
-              {/* 3 Card lựa chọn Nam - Nữ - Khác */}
-              <div className="grid grid-cols-3 gap-3">
-                {/* Nam */}
-                <button
-                  type="button"
-                  onClick={() => setGender('MALE')}
-                  className={`p-3.5 rounded-xl border text-center transition-all duration-200 flex flex-col items-center gap-1.5 cursor-pointer ${
-                    gender === 'MALE'
-                      ? 'border-teal-600 bg-teal-50/70 text-teal-900 shadow-sm ring-2 ring-teal-600/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-lg font-bold leading-none">♂</span>
-                  <span className="text-xs font-semibold">Nam</span>
-                </button>
-
-                {/* Nữ */}
-                <button
-                  type="button"
-                  onClick={() => setGender('FEMALE')}
-                  className={`p-3.5 rounded-xl border text-center transition-all duration-200 flex flex-col items-center gap-1.5 cursor-pointer ${
-                    gender === 'FEMALE'
-                      ? 'border-teal-600 bg-teal-50/70 text-teal-900 shadow-sm ring-2 ring-teal-600/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-lg font-bold leading-none">♀</span>
-                  <span className="text-xs font-semibold">Nữ</span>
-                </button>
-
-                {/* Khác */}
-                <button
-                  type="button"
-                  onClick={() => setGender('OTHER')}
-                  className={`p-3.5 rounded-xl border text-center transition-all duration-200 flex flex-col items-center gap-1.5 cursor-pointer ${
-                    gender === 'OTHER'
-                      ? 'border-teal-600 bg-teal-50/70 text-teal-900 shadow-sm ring-2 ring-teal-600/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-lg font-bold leading-none">⚧</span>
-                  <span className="text-xs font-semibold">Khác</span>
-                </button>
+                <div className="mt-2.5 flex flex-wrap gap-2 text-xs text-slate-600">
+                  <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 font-medium text-[11px]">
+                    Giới tính: <strong className="text-slate-800">{genderLabels[gender]?.label || 'Khác'}</strong>
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 font-medium text-[11px]">
+                    Chiều cao: <strong className="text-slate-800">{heightCm ? `${heightCm} cm` : 'Chưa nhập'}</strong>
+                  </span>
+                  {calculatedAge !== null && (
+                    <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 font-medium text-[11px]">
+                      Độ tuổi: <strong className="text-slate-800">{calculatedAge} tuổi</strong>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-100" />
-
-          {/* 4. HỌ VÀ TÊN & EMAIL */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-            <div className="md:col-span-4">
-              <label htmlFor="fullNameInput" className="block text-sm font-semibold text-slate-800">
-                Họ và tên
-              </label>
-              <p className="text-xs text-slate-500 mt-1">
-                Tên hiển thị trong hồ sơ sức khỏe và khi chia sẻ dữ liệu với người thân trong gia đình.
-              </p>
+          {/* 3 QUICK STATS CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center shrink-0">
+                <Ruler className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chiều cao</span>
+                <div className="text-base font-extrabold text-slate-900 truncate">
+                  {heightCm ? `${heightCm} cm` : 'Chưa nhập'}
+                </div>
+              </div>
             </div>
 
-            <div className="md:col-span-8">
-              <div className="relative">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tuổi</span>
+                <div className="text-base font-extrabold text-slate-900 truncate">
+                  {calculatedAge !== null ? `${calculatedAge} tuổi` : 'Chưa đặt'}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <HeartPulse className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Giới tính</span>
+                <div className="text-base font-extrabold text-slate-900 truncate flex items-center gap-1">
+                  <span>{genderLabels[gender]?.label || 'Khác'}</span>
+                  <span className="text-sm text-slate-400 font-semibold">{genderLabels[gender]?.symbol}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* FORM CARD CẬP NHẬT */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-7">
+            <div className="flex items-center gap-2 pb-4 mb-6 border-b border-slate-100">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Cập nhật thông tin thể chất</h3>
+                <p className="text-xs text-slate-500">Mọi thay đổi sẽ cập nhật trực tiếp lên mô hình 3D bên trái</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* 1. CHIỀU CAO */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="heightInput" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Chiều cao cơ thể (cm) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-xs text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200/60">
+                    {heightCm ? `${(heightCm / 100).toFixed(2)} m` : 'Chưa nhập'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      id="heightInput"
+                      type="number"
+                      min="50"
+                      max="250"
+                      step="1"
+                      required
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      placeholder="170"
+                      className="w-full h-11 px-4 bg-white border border-slate-300 rounded-xl text-slate-900 text-base font-bold focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
+                    />
+                    <span className="absolute right-3.5 top-3 text-xs font-semibold text-slate-400 pointer-events-none">
+                      cm
+                    </span>
+                  </div>
+
+                  {/* Nút điều chỉnh nhanh */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[-5, -1, 1, 5].map((delta) => (
+                      <button
+                        key={delta}
+                        type="button"
+                        onClick={() => adjustHeight(delta)}
+                        className="h-11 px-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                      >
+                        {delta > 0 ? `+${delta}` : delta}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Range Slider trực quan */}
+                <input
+                  type="range"
+                  min="100"
+                  max="220"
+                  step="1"
+                  value={Number(heightCm) || 170}
+                  onChange={(e) => setHeightCm(Number(e.target.value))}
+                  className="w-full mt-3 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                />
+              </div>
+
+              {/* 2. NGÀY SINH */}
+              <div>
+                <label htmlFor="birthDateInput" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Ngày sinh
+                </label>
+                <input
+                  id="birthDateInput"
+                  type="date"
+                  value={birthDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  className="w-full h-11 px-4 bg-white border border-slate-300 rounded-xl text-slate-800 text-xs font-semibold focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
+                />
+                {calculatedAge !== null && (
+                  <p className="text-[11px] text-teal-700 font-semibold mt-1">
+                    Tuổi hiện tại: {calculatedAge} tuổi
+                  </p>
+                )}
+              </div>
+
+              {/* 3. GIỚI TÍNH SINH HỌC (THAY ĐỔI MÔ HÌNH 3D NAM/NỮ) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Giới tính sinh học <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setGender('MALE')}
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      gender === 'MALE'
+                        ? 'border-teal-600 bg-teal-50 text-teal-900 shadow-sm ring-2 ring-teal-600/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-base font-bold text-sky-600">♂</span>
+                    <span className="text-xs font-bold">Nam</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGender('FEMALE')}
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      gender === 'FEMALE'
+                        ? 'border-rose-500 bg-rose-50 text-rose-900 shadow-sm ring-2 ring-rose-500/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-base font-bold text-rose-500">♀</span>
+                    <span className="text-xs font-bold">Nữ</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGender('OTHER')}
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      gender === 'OTHER'
+                        ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm ring-2 ring-purple-600/20'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-base font-bold text-purple-600">⚧</span>
+                    <span className="text-xs font-bold">Khác</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. HỌ TÊN */}
+              <div>
+                <label htmlFor="fullNameInput" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Họ và tên
+                </label>
                 <input
                   id="fullNameInput"
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nguyễn Văn A"
-                  className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-slate-900 text-sm font-medium focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full h-11 px-4 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm font-semibold focus:outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-500/15 transition-all"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* 5. EMAIL (CHỈ ĐỌC) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-            <div className="md:col-span-4">
-              <label className="block text-sm font-semibold text-slate-800">
-                Email đăng nhập
-              </label>
-              <p className="text-xs text-slate-500 mt-1">
-                Địa chỉ email định danh tài khoản duy nhất, không thể thay đổi tại đây.
-              </p>
-            </div>
-
-            <div className="md:col-span-8">
-              <div className="relative">
-                <input
-                  type="email"
-                  disabled
-                  value={email}
-                  className="w-full h-11 pl-4 pr-10 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-sm font-medium cursor-not-allowed select-none"
-                />
-                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
+              {/* 5. EMAIL (Chỉ đọc) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Email tài khoản
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    disabled
+                    value={email}
+                    className="w-full h-11 pl-4 pr-10 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-xs font-semibold cursor-not-allowed select-none"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Actions Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={!isFormChanged || saving}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" />
+                  Khôi phục
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={!isFormChanged || saving}
+                  className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/20 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Lưu thay đổi</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
           </div>
+        </div>
 
-          {/* FOOTER ACTIONS */}
-          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={!isFormChanged || saving}
-              className="w-full sm:w-auto h-11 px-5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Khôi phục ban đầu</span>
-            </button>
-
-            <button
-              type="submit"
-              disabled={!isFormChanged || saving}
-              className="w-full sm:w-auto h-11 px-6 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-semibold text-sm rounded-xl shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang lưu thay đổi...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Lưu thay đổi</span>
-                </>
-              )}
-            </button>
-          </div>
-
-        </form>
       </div>
 
+      {/* Modal ghi nhận chỉ số sức khỏe */}
+      <HealthRecordModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        onSuccess={async () => {
+          setSuccessMessage('Đã lưu chỉ số sức khỏe mới!');
+          // Tải lại các chỉ số mới nhất lên mô hình 3D
+          try {
+            const recRes = await healthRecordService.getAll();
+            if (recRes?.success && Array.isArray(recRes.data)) {
+              const sorted = [...recRes.data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+              setLatestMetrics({
+                bloodPressure: sorted.find((r) => r.type === 'BLOOD_PRESSURE'),
+                temperature: sorted.find((r) => r.type === 'TEMPERATURE'),
+                weight: sorted.find((r) => r.type === 'WEIGHT'),
+                heartRate: sorted.find((r) => r.type === 'HEART_RATE'),
+              });
+            }
+          } catch (e) {}
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }}
+        currentUserHeight={heightCm}
+      />
     </div>
   );
 }
-
