@@ -9,25 +9,25 @@ import {
   Thermometer, 
   Scale, 
   Plus, 
-  Eye,
+  Minus,
   Loader2,
-  CheckCircle2,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  MoveVertical
 } from 'lucide-react';
 
 /**
- * 3D Human Avatar (Real 3D GLB Model & WebGL Three.js)
- * Sử dụng file mô hình 3D thực tế (.GLB) đầy đủ mesh người thật (khuôn mặt, tóc, quần áo, giày):
- * - Không phải ghép thô từ hình hộp/hình trụ (không còn giống robot).
- * - Xoay 360 độ mượt mà bằng kéo chuột / chạm vuốt.
- * - Tự động co dãn theo chiều cao người dùng (heightCm).
- * - Tích hợp đầy đủ HUD đo: Nhiệt độ, Huyết áp, Nhịp tim, Cân nặng, BMI, Thước laser.
- * - Hỗ trợ nút chuyển đổi nhanh giữa "Mô hình 3D GLB (Xoay 360°)" và "Ảnh 3D Anime Pixar".
+ * 3D Human Avatar (Three.js WebGL & GLTF Model)
+ * Mô hình 3D thực tế hoàn chỉnh của cơ thể con người (Nam / Nữ):
+ * - Không phải ghép thô từ hình trụ/khối hộp (loại bỏ hoàn toàn cảm giác robot).
+ * - Tương tác trực tiếp và co dãn chiều cao theo thời gian thực (heightCm).
+ * - Xoay 360 độ mượt mà bằng chuột / vuốt chạm.
+ * - Gắn đầy đủ HUD sinh trắc học: Thân nhiệt, Huyết áp & Tim, Cân nặng & BMI, Thước laser.
  */
 export default function Human3DViewer({
   gender = 'MALE',
   heightCm = 170,
+  onHeightChange,
   fullName = 'Người dùng',
   latestMetrics = {},
   onOpenLogModal,
@@ -37,16 +37,18 @@ export default function Human3DViewer({
   const previousMousePositionRef = useRef({ x: 0, y: 0 });
   const [isAutoRotating, setIsAutoRotating] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(true);
-  const [viewMode, setViewMode] = useState('3D_MODEL'); // '3D_MODEL' | '3D_ANIME'
 
+  // Tham chiếu đối tượng Three.js
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const humanGroupRef = useRef(null);
+  const loadedModelRef = useRef(null);
+  const modelMetricsRef = useRef({ baseHeight: 1.68, boxMinY: -0.89, rawSizeY: 1 });
   const heartMeshRef = useRef(null);
   const heartLightRef = useRef(null);
   const animationFrameIdRef = useRef(null);
 
-  // Chỉ số đo mới nhất
+  // Chỉ số sức khỏe thực tế
   const bpData = latestMetrics?.bloodPressure;
   const tempData = latestMetrics?.temperature;
   const weightData = latestMetrics?.weight;
@@ -63,14 +65,10 @@ export default function Human3DViewer({
   const hrDisplay = heartData ? `${heartData.value}` : '75';
 
   const isFemale = gender === 'FEMALE';
-  const genderTitle = isFemale 
-    ? 'Nữ giới • Mô hình 3D Full Mesh' 
-    : 'Nam giới • Mô hình 3D Full Mesh';
+  const genderTitle = isFemale ? 'Nữ giới (Mô hình 3D)' : 'Nam giới (Mô hình 3D)';
 
-  // Khởi tạo Three.js Scene và GLTFLoader khi ở chế độ 3D_MODEL
+  // Khởi tạo Scene Three.js
   useEffect(() => {
-    if (viewMode !== '3D_MODEL') return;
-
     const container = mountRef.current;
     if (!container) return;
 
@@ -83,7 +81,7 @@ export default function Human3DViewer({
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1000);
-    camera.position.set(0, 0.95, 3.2);
+    camera.position.set(0, 0.95, 3.25);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -95,7 +93,7 @@ export default function Human3DViewer({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // Ánh sáng Studio chuyên nghiệp
+    // Ánh sáng tự nhiên
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     scene.add(ambientLight);
 
@@ -112,7 +110,7 @@ export default function Human3DViewer({
     backRimLight.position.set(0, 5, -4);
     scene.add(backRimLight);
 
-    // Sàn bục tròn Studio phát sáng
+    // Bục đứng tròn Studio phát sáng neon teal
     const stageGeo = new THREE.CylinderGeometry(0.75, 0.82, 0.05, 36);
     const stageMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
@@ -124,7 +122,6 @@ export default function Human3DViewer({
     stage.receiveShadow = true;
     scene.add(stage);
 
-    // Vòng tròn neon teal quanh bục
     const glowRingGeo = new THREE.RingGeometry(0.77, 0.83, 48);
     const glowRingMat = new THREE.MeshBasicMaterial({
       color: 0x14b8a6,
@@ -142,7 +139,7 @@ export default function Human3DViewer({
     scene.add(humanGroup);
     humanGroupRef.current = humanGroup;
 
-    // Load file mô hình 3D thật (.GLB)
+    // Load tệp mô hình 3D thực tế
     const gltfLoader = new GLTFLoader();
     const modelPath = isFemale ? '/models/asian_female.glb' : '/models/asian_male.glb';
 
@@ -150,26 +147,24 @@ export default function Human3DViewer({
       modelPath,
       (gltf) => {
         const model = gltf.scene;
+        loadedModelRef.current = model;
 
-        // Tính toán kích thước và căn giữa mô hình chuẩn
+        // Tính bounding box ban đầu
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
 
-        // Chuẩn hóa chiều cao ~1.7m trong viewport
-        const targetHeight = 1.68 * ((heightCm || 170) / 170);
-        const scale = targetHeight / (size.y || 1);
-        model.scale.set(scale, scale, scale);
+        const baseHeight = 1.68;
+        const rawSizeY = size.y || 1;
+        modelMetricsRef.current = {
+          baseHeight,
+          boxMinY: box.min.y,
+          centerX: center.x,
+          centerZ: center.z,
+          rawSizeY
+        };
 
-        // Đặt chân nhân vật chạm ngay mặt sàn bục (-0.89)
-        const minY = box.min.y * scale;
-        model.position.set(
-          -center.x * scale,
-          -0.89 - minY,
-          -center.z * scale
-        );
-
-        // Kích hoạt đổ bóng và vật liệu chân thực
+        // Kích hoạt đổ bóng
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -181,9 +176,12 @@ export default function Human3DViewer({
           }
         });
 
+        // Áp dụng tỷ lệ chiều cao ban đầu
+        updateModelHeight(model, heightCm);
+
         humanGroup.add(model);
 
-        // Trái tim 3D phát sáng nhấp nháy ở lồng ngực
+        // Trái tim 3D phát sáng nhấp nháy bên ngực trái
         const heartGeo = new THREE.SphereGeometry(0.035, 16, 16);
         const heartMat = new THREE.MeshBasicMaterial({ color: 0xff1744 });
         const heartMesh = new THREE.Mesh(heartGeo, heartMat);
@@ -200,12 +198,12 @@ export default function Human3DViewer({
       },
       undefined,
       (error) => {
-        console.error('Không thể tải mô hình 3D GLB:', error);
+        console.error('Không thể tải mô hình 3D:', error);
         setIsLoadingModel(false);
       }
     );
 
-    // Kéo chuột để xoay 360 độ
+    // Kéo chuột xoay 360 độ
     const handleMouseDown = (e) => {
       isDraggingRef.current = true;
       previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
@@ -250,7 +248,7 @@ export default function Human3DViewer({
       animationFrameIdRef.current = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Tự động xoay chậm nhẹ nhàng khi người dùng không kéo
+      // Tự động xoay chậm nhẹ nhàng
       if (isAutoRotating && !isDraggingRef.current && humanGroupRef.current) {
         humanGroupRef.current.rotation.y += 0.006;
       }
@@ -263,9 +261,9 @@ export default function Human3DViewer({
         heartLightRef.current.intensity = 1.0 + pulse * 2.0;
       }
 
-      // Nhịp thở hô hấp nhẹ tự nhiên
+      // Nhịp hô hấp nhẹ
       if (humanGroupRef.current) {
-        humanGroupRef.current.position.y = Math.sin(elapsed * 1.5) * 0.01;
+        humanGroupRef.current.position.y = Math.sin(elapsed * 1.5) * 0.008;
       }
 
       renderer.render(scene, camera);
@@ -299,7 +297,48 @@ export default function Human3DViewer({
       }
       renderer.dispose();
     };
-  }, [viewMode, gender, heightCm]);
+  }, [gender]);
+
+  // HÀM CO DÃN CHIỀU CAO MÔ HÌNH 3D CHUẨN XÁC THEO HEIGHTCM
+  const updateModelHeight = (model, currentH) => {
+    if (!model) return;
+    const { baseHeight, boxMinY, centerX, centerZ, rawSizeY } = modelMetricsRef.current;
+    
+    // Tỷ lệ co dãn theo chiều cao người (chuẩn 170cm = 1.0)
+    const heightFactor = Math.max(0.75, Math.min(1.35, (Number(currentH) || 170) / 170));
+    
+    // Chiều cao mục tiêu
+    const targetH = baseHeight * heightFactor;
+    const scaleY = targetH / rawSizeY;
+    
+    // Giữ bề ngang hài hòa (tăng nhẹ bề ngang 30% khi cao lên để tự nhiên)
+    const scaleXZ = (baseHeight / rawSizeY) * (1 + (heightFactor - 1) * 0.35);
+
+    model.scale.set(scaleXZ, scaleY, scaleXZ);
+
+    // Chân luôn chạm mặt sàn bục đứng (-0.89)
+    const floorY = -0.89;
+    const scaledMinY = boxMinY * scaleY;
+    model.position.set(
+      -(centerX || 0) * scaleXZ,
+      floorY - scaledMinY,
+      -(centerZ || 0) * scaleXZ
+    );
+
+    // Cập nhật vị trí trái tim theo chiều cao ngực
+    if (heartMeshRef.current && heartLightRef.current) {
+      const chestY = floorY + targetH * 0.68;
+      heartMeshRef.current.position.y = chestY;
+      heartLightRef.current.position.y = chestY;
+    }
+  };
+
+  // Cập nhật chiều cao mô hình mỗi khi prop heightCm thay đổi
+  useEffect(() => {
+    if (loadedModelRef.current) {
+      updateModelHeight(loadedModelRef.current, heightCm);
+    }
+  }, [heightCm]);
 
   const handleResetView = () => {
     if (humanGroupRef.current) humanGroupRef.current.rotation.y = 0;
@@ -308,9 +347,16 @@ export default function Human3DViewer({
     if (humanGroupRef.current) humanGroupRef.current.rotation.y = Math.PI;
   };
 
-  const standingImageSrc = isFemale 
-    ? '/avatars/female_anime_standing.jpg' 
-    : '/avatars/male_anime_standing.jpg';
+  // Tăng giảm nhanh chiều cao trực tiếp từ 3D Card
+  const handleAdjustHeight = (delta) => {
+    const newH = Math.max(120, Math.min(220, (Number(heightCm) || 170) + delta));
+    if (onHeightChange) {
+      onHeightChange(newH);
+    }
+  };
+
+  // Tính phần trăm vị trí tia laser thước đo theo chiều cao
+  const laserPercentage = Math.max(12, Math.min(88, ((Number(heightCm) || 170) - 120) / (220 - 120) * 100));
 
   return (
     <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-teal-950 rounded-3xl p-5 text-white shadow-2xl border border-slate-800 relative overflow-hidden flex flex-col justify-between">
@@ -318,103 +364,75 @@ export default function Human3DViewer({
       <div className="absolute top-0 right-0 -mr-24 -mt-24 w-64 h-64 rounded-full bg-teal-500/15 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-      {/* Header Info & View Mode Switcher */}
+      {/* Header Info */}
       <div className="relative z-20 flex items-center justify-between pb-2">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-teal-300 uppercase tracking-wider shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            Mô hình 3D Thực tế (.GLB)
+            Mô hình 3D Cơ thể người
           </div>
           <h3 className="text-lg font-bold text-white mt-1">
             {fullName || 'Người dùng'}
           </h3>
           <p className="text-xs text-slate-400">
-            {genderTitle} • {heightCm} cm
+            {genderTitle} • <strong className="text-teal-300">{heightCm} cm</strong>
           </p>
         </div>
 
-        {/* Nút điều khiển xoay & chế độ xem */}
-        <div className="flex items-center gap-1.5">
-          {viewMode === '3D_MODEL' && (
-            <button
-              type="button"
-              onClick={() => setIsAutoRotating(!isAutoRotating)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                isAutoRotating
-                  ? 'bg-teal-500/20 border-teal-500/40 text-teal-300 shadow-sm'
-                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-              }`}
-              title={isAutoRotating ? 'Dừng tự xoay' : 'Bật tự xoay 360°'}
-            >
-              <RotateCw className={`w-4 h-4 ${isAutoRotating ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
-            </button>
-          )}
-
-          {/* Nút chuyển đổi giữa Mô hình 3D WebGL và Ảnh 3D Anime */}
-          <button
-            type="button"
-            onClick={() => setViewMode(viewMode === '3D_MODEL' ? '3D_ANIME' : '3D_MODEL')}
-            className="px-2.5 py-1.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-[11px] font-bold text-teal-200 cursor-pointer transition-all flex items-center gap-1"
-            title="Chuyển đổi giao diện"
-          >
-            <Eye className="w-3.5 h-3.5 text-teal-400" />
-            <span>{viewMode === '3D_MODEL' ? 'Anime 3D' : 'WebGL 3D'}</span>
-          </button>
-        </div>
+        {/* Nút bật/tắt tự động xoay */}
+        <button
+          type="button"
+          onClick={() => setIsAutoRotating(!isAutoRotating)}
+          className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+            isAutoRotating
+              ? 'bg-teal-500/20 border-teal-500/40 text-teal-300 shadow-sm'
+              : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+          }`}
+          title={isAutoRotating ? 'Dừng tự xoay' : 'Bật tự xoay 360°'}
+        >
+          <RotateCw className={`w-4 h-4 ${isAutoRotating ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+        </button>
       </div>
 
-      {/* KHÔNG GIAN HIỂN THỊ CHÍNH (3D CANVAS HOẶC ANIME 3D) */}
+      {/* KHÔNG GIAN 3D WEBGL CONTAINER */}
       <div className="relative my-2 w-full h-[430px] sm:h-[480px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none">
-        
-        {/* VIEW 1: MÔ HÌNH 3D WEBGL (.GLB FILE THẬT) */}
-        {viewMode === '3D_MODEL' && (
-          <div className="relative w-full h-full">
-            <div ref={mountRef} className="w-full h-full" />
+        <div ref={mountRef} className="w-full h-full" />
 
-            {/* Loading Indicator khi đang nạp file 3D */}
-            {isLoadingModel && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm z-30">
-                <Loader2 className="w-8 h-8 text-teal-400 animate-spin mb-2" />
-                <span className="text-xs font-semibold text-slate-300">Đang nạp mô hình 3D con người...</span>
-              </div>
-            )}
+        {/* Loading Indicator */}
+        {isLoadingModel && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm z-30">
+            <Loader2 className="w-8 h-8 text-teal-400 animate-spin mb-2" />
+            <span className="text-xs font-semibold text-slate-300">Đang nạp mô hình 3D...</span>
           </div>
         )}
 
-        {/* VIEW 2: TẠO HÌNH ANIME 3D CHUẨN PIXAR */}
-        {viewMode === '3D_ANIME' && (
-          <div className="relative w-full h-full flex flex-col items-center justify-end pb-2">
-            <img 
-              src={standingImageSrc} 
-              alt={fullName}
-              className="h-full w-auto max-h-[440px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.65)]"
-            />
-            {/* Bục tròn Neon */}
-            <div 
-              className="absolute bottom-1 w-52 sm:w-60 h-7 rounded-[100%] bg-teal-500/25 blur-[3px] border border-teal-400/50 shadow-[0_0_30px_rgba(20,184,166,0.6)] pointer-events-none -z-10"
-              style={{ transform: 'rotateX(75deg)' }}
-            />
-          </div>
-        )}
-
-        {/* Thước đo Laser chiều cao bên trái */}
+        {/* THƯỚC ĐO LASER CHIỀU CAO TƯƠNG TÁC (BÊN TRÁI) */}
         <div className="absolute left-2 top-8 bottom-12 flex flex-col justify-between text-[10px] font-mono text-teal-400/80 pointer-events-none border-l border-teal-500/30 pl-1.5 z-20">
           <span className="flex items-center gap-1">
-            <span className="w-2 h-px bg-teal-400" /> 200 cm
+            <span className="w-2 h-px bg-teal-400" /> 220 cm
           </span>
-          <span className="flex items-center gap-1 font-bold text-teal-300 bg-teal-950/80 px-1 py-0.2 rounded border border-teal-500/40 shadow-xs">
-            <span className="w-2.5 h-0.5 bg-teal-300" /> {heightCm} cm
+
+          {/* Dấu Laser động theo chiều cao */}
+          <div 
+            className="absolute left-0 -ml-[1px] transition-all duration-300 ease-out flex items-center gap-1.5 pointer-events-none"
+            style={{ bottom: `${laserPercentage}%` }}
+          >
+            <span className="w-3 h-0.5 bg-teal-300 shadow-[0_0_8px_#2dd4bf]" />
+            <span className="font-bold text-teal-200 bg-teal-950/90 px-1.5 py-0.5 rounded border border-teal-400/60 shadow-md text-[10px] whitespace-nowrap">
+              {heightCm} cm
+            </span>
+          </div>
+
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-px bg-teal-400" /> 170 cm
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-px bg-teal-400" /> 150 cm
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-px bg-teal-400" /> 100 cm
+            <span className="w-2 h-px bg-teal-400" /> 120 cm
           </span>
         </div>
 
         {/* ============================================================== */}
-        {/* HUD CHỈ SỐ 1: THÂN NHIỆT (VÙNG TRÁN / ĐẦU)                     */}
+        {/* HUD CHỈ SỐ 1: THÂN NHIỆT (VÙNG ĐẦU / TRÁN)                     */}
         {/* ============================================================== */}
         <div className="absolute right-3 top-4 p-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-amber-500/40 shadow-xl text-xs space-y-0.5 pointer-events-auto transition-transform hover:scale-105 z-20">
           <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[11px]">
@@ -468,50 +486,69 @@ export default function Human3DViewer({
           </span>
         </div>
 
-        {/* Hướng dẫn kéo chuột */}
+        {/* Chú thích kéo chuột */}
         <div className="absolute bottom-2 text-center w-full pointer-events-none z-20">
           <span className="inline-block px-3 py-1 rounded-full bg-slate-900/85 backdrop-blur-md text-[10px] text-slate-400 border border-white/10 shadow-md">
-            {viewMode === '3D_MODEL' ? 'Kéo chuột để xoay 360° mô hình 3D' : 'Xem dạng tạo hình Anime Pixar'}
+            Kéo chuột để xoay 360° xung quanh cơ thể
           </span>
         </div>
       </div>
 
-      {/* Bottom Bar: Nút xoay góc nhìn & Nút ghi chỉ số */}
-      <div className="relative z-20 pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-        {viewMode === '3D_MODEL' ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleResetView}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
-            >
-              Mặt trước
-            </button>
-            <button
-              type="button"
-              onClick={handleTurnBack}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
-            >
-              Mặt sau
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-slate-400 text-xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Đồng bộ hồ sơ</span>
-          </div>
-        )}
-
-        {onOpenLogModal && (
+      {/* THANH TƯƠNG TÁC CHIỀU CAO & ĐIỀU KHIỂN GÓC NHÌN */}
+      <div className="relative z-20 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+        {/* Bộ tương tác chiều cao trực tiếp */}
+        <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-white/10">
+          <MoveVertical className="w-3.5 h-3.5 text-teal-400" />
+          <span className="text-[11px] text-slate-300">Chiều cao:</span>
           <button
             type="button"
-            onClick={onOpenLogModal}
-            className="px-4 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-teal-600/30 active:scale-95"
+            onClick={() => handleAdjustHeight(-2)}
+            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer transition-all"
+            title="Giảm 2cm"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Ghi chỉ số</span>
+            <Minus className="w-3 h-3" />
           </button>
-        )}
+          <span className="font-mono font-bold text-teal-300 text-xs px-1">
+            {heightCm} cm
+          </span>
+          <button
+            type="button"
+            onClick={() => handleAdjustHeight(2)}
+            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer transition-all"
+            title="Tăng 2cm"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Nút xoay góc nhìn & Ghi chỉ số */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button
+            type="button"
+            onClick={handleResetView}
+            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
+          >
+            Mặt trước
+          </button>
+          <button
+            type="button"
+            onClick={handleTurnBack}
+            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
+          >
+            Mặt sau
+          </button>
+
+          {onOpenLogModal && (
+            <button
+              type="button"
+              onClick={onOpenLogModal}
+              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-teal-600/30 active:scale-95 ml-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Ghi chỉ số</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

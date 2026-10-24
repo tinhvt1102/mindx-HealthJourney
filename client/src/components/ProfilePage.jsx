@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Mail, 
@@ -342,6 +342,7 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
           <Human3DViewer
             gender={gender}
             heightCm={Number(heightCm) || 170}
+            onHeightChange={(newH) => setHeightCm(newH)}
             fullName={fullName || 'Tôi'}
             latestMetrics={latestMetrics}
             onOpenLogModal={() => setIsLogModalOpen(true)}
