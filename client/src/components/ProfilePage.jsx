@@ -19,7 +19,8 @@ import {
   UploadCloud,
   Activity
 } from 'lucide-react';
-import { authService } from '../services/api';
+import { authService, healthRecordService } from '../services/api';
+import HealthRecordModal from './HealthRecordModal';
 import Human3DViewer from './Human3DViewer';
 
 export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
@@ -35,6 +36,10 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
   const [avatar, setAvatar] = useState(currentUser?.avatar || currentUser?.avatarUrl || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Lưu trữ chỉ số sức khỏe mới nhất để truyền vào mô hình 3D (Huyết áp, Nhiệt độ, Cân nặng, Tim mạch)
+  const [latestMetrics, setLatestMetrics] = useState({});
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -129,6 +134,19 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
         if (res?.user) {
           populateFormData(res.user);
           if (onUpdateUser) onUpdateUser(res.user);
+        }
+
+        // Tải các chỉ số sức khỏe mới nhất để hiển thị trực quan lên mô hình 3D
+        const recRes = await healthRecordService.getAll();
+        if (recRes?.success && Array.isArray(recRes.data)) {
+          // Sắp xếp bản ghi mới nhất lên đầu
+          const sorted = [...recRes.data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+          setLatestMetrics({
+            bloodPressure: sorted.find((r) => r.type === 'BLOOD_PRESSURE'),
+            temperature: sorted.find((r) => r.type === 'TEMPERATURE'),
+            weight: sorted.find((r) => r.type === 'WEIGHT'),
+            heartRate: sorted.find((r) => r.type === 'HEART_RATE'),
+          });
         }
       } catch (err) {
         console.warn('Không thể đồng bộ dữ liệu mới nhất từ server:', err);
@@ -325,6 +343,8 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
             gender={gender}
             heightCm={Number(heightCm) || 170}
             fullName={fullName || 'Tôi'}
+            latestMetrics={latestMetrics}
+            onOpenLogModal={() => setIsLogModalOpen(true)}
           />
 
           {/* Card diễn giải tương tác 3D */}
@@ -664,6 +684,29 @@ export default function ProfilePage({ currentUser, onUpdateUser, onBack }) {
 
       </div>
 
+      {/* Modal ghi nhận chỉ số sức khỏe */}
+      <HealthRecordModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        onSuccess={async () => {
+          setSuccessMessage('Đã lưu chỉ số sức khỏe mới!');
+          // Tải lại các chỉ số mới nhất lên mô hình 3D
+          try {
+            const recRes = await healthRecordService.getAll();
+            if (recRes?.success && Array.isArray(recRes.data)) {
+              const sorted = [...recRes.data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+              setLatestMetrics({
+                bloodPressure: sorted.find((r) => r.type === 'BLOOD_PRESSURE'),
+                temperature: sorted.find((r) => r.type === 'TEMPERATURE'),
+                weight: sorted.find((r) => r.type === 'WEIGHT'),
+                heartRate: sorted.find((r) => r.type === 'HEART_RATE'),
+              });
+            }
+          } catch (e) {}
+          setTimeout(() => setSuccessMessage(''), 3000);
+        }}
+        currentUserHeight={heightCm}
+      />
     </div>
   );
 }
