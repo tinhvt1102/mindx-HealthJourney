@@ -3,6 +3,8 @@ import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
 import FamilyPage from './components/FamilyPage';
 import PrivacyMatrixPage from './components/PrivacyMatrixPage';
+import HealthTrackerPage from './components/HealthTrackerPage';
+import HealthRecordModal from './components/HealthRecordModal';
 import InvitationBanner from './components/InvitationBanner';
 import InvitationModal from './components/InvitationModal';
 import { 
@@ -16,13 +18,18 @@ import {
   UserCog, 
   LayoutDashboard, 
   ChevronRight,
-  UserPlus
+  UserPlus,
+  Plus,
+  TrendingUp
 } from 'lucide-react';
 import { authService } from './services/api';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
+
+  // Modal ghi nhận chỉ số nhanh toàn cục
+  const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
   const [urlInviteToken, setUrlInviteToken] = useState(null);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
@@ -114,7 +121,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -126,8 +133,21 @@ export default function App() {
 
               <button
                 type="button"
+                onClick={() => setCurrentTab('health')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                  currentTab === 'health'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                <span>Chỉ số sức khỏe</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCurrentTab('family')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'family'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -140,7 +160,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('privacy')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'privacy'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -153,7 +173,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('profile')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'profile'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -165,7 +185,17 @@ export default function App() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* Nút bấm Ghi chỉ số nhanh trên header */}
+            <button
+              type="button"
+              onClick={() => setIsQuickLogOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-teal-600" />
+              <span>Ghi chỉ số</span>
+            </button>
+
             <button
               onClick={() => setCurrentTab('profile')}
               className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
@@ -182,7 +212,7 @@ export default function App() {
                   displayName.charAt(0).toUpperCase()
                 )}
               </div>
-              <span className="text-sm font-semibold max-w-[130px] truncate">
+              <span className="text-sm font-semibold max-w-[120px] truncate">
                 {displayName}
               </span>
             </button>
@@ -197,6 +227,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* Mobile Navigation bar */}
         <div className="md:hidden flex border-t border-slate-100 bg-white px-2 py-1.5 gap-1 overflow-x-auto">
           <button
             type="button"
@@ -206,6 +237,15 @@ export default function App() {
             }`}
           >
             Tổng quan
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('health')}
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+              currentTab === 'health' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
+            }`}
+          >
+            Chỉ số
           </button>
           <button
             type="button"
@@ -251,6 +291,11 @@ export default function App() {
             onUpdateUser={handleUpdateUser}
             onBack={() => setCurrentTab('dashboard')}
           />
+        ) : currentTab === 'health' ? (
+          <HealthTrackerPage
+            currentUser={currentUser}
+            onOpenLogModal={() => setIsQuickLogOpen(true)}
+          />
         ) : currentTab === 'family' ? (
           <FamilyPage
             currentUser={currentUser}
@@ -264,7 +309,7 @@ export default function App() {
           />
         ) : (
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="max-w-2xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-3">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
@@ -280,12 +325,18 @@ export default function App() {
 
               <div className="shrink-0 flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={() => setCurrentTab('family')}
-                  className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  onClick={() => setIsQuickLogOpen(true)}
+                  className="px-5 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <Users className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
+                  <span>Ghi chỉ số mới</span>
+                </button>
+                <button
+                  onClick={() => setCurrentTab('family')}
+                  className="px-5 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Users className="w-4 h-4 text-teal-600" />
                   <span>Quản lý Gia đình</span>
-                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -319,15 +370,27 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
-              <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-teal-300 transition-all">
-                <Activity className="w-6 h-6 text-teal-600 mb-3" />
-                <h4 className="font-semibold text-slate-900">Chỉ số sức khỏe</h4>
-                <p className="text-xs text-slate-500 mt-1">Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết.</p>
+              <div 
+                onClick={() => setCurrentTab('health')}
+                className="p-5 rounded-2xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <Activity className="w-6 h-6 text-teal-600" />
+                  <span className="text-[11px] font-bold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                    Nhật ký
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors">
+                  Chỉ số sức khỏe & Biểu đồ
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết và xem biểu đồ 7/30 ngày.
+                </p>
               </div>
 
               <div 
                 onClick={() => setCurrentTab('family')}
-                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+                className="p-5 rounded-2xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between mb-3">
                   <Users className="w-6 h-6 text-teal-600" />
@@ -345,7 +408,7 @@ export default function App() {
 
               <div 
                 onClick={() => setCurrentTab('privacy')}
-                className="p-5 rounded-xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
+                className="p-5 rounded-2xl border border-teal-200/80 bg-teal-50/40 hover:bg-teal-50 hover:border-teal-400 transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between mb-3">
                   <ShieldCheck className="w-6 h-6 text-teal-600" />
@@ -364,6 +427,17 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Modal ghi chỉ số nhanh toàn cục */}
+      <HealthRecordModal
+        isOpen={isQuickLogOpen}
+        onClose={() => setIsQuickLogOpen(false)}
+        onSuccess={() => {
+          // Nếu đang ở tab health, HealthTrackerPage sẽ tự động đồng bộ khi chuyển sang hoặc khi người dùng xem
+          setCurrentTab('health');
+        }}
+        currentUserHeight={currentUser?.heightCm}
+      />
 
       <InvitationModal
         token={urlInviteToken}
