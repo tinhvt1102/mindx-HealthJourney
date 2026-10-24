@@ -99,11 +99,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
-                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }}
+                }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Tổng quan</span>
@@ -112,11 +112,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('family')}
-                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'family'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }}
+                }`}
               >
                 <Users className="w-4 h-4" />
                 <span>Gia đình</span>
@@ -125,11 +125,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('privacy')}
-                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'privacy'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }}
+                }`}
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Quyền riêng tư</span>
@@ -138,11 +138,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('profile')}
-                className={lex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                   currentTab === 'profile'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }}
+                }`}
               >
                 <UserCog className="w-4 h-4" />
                 <span>Hồ sơ</span>
@@ -153,11 +153,11 @@ export default function App() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCurrentTab('profile')}
-              className={lex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
                 currentTab === 'profile'
                   ? 'bg-teal-50 border-teal-200 text-teal-800'
                   : 'bg-slate-100 border-slate-200/80 text-slate-700 hover:bg-slate-200/70'
-              }}
+              }`}
               title="Xem và chỉnh sửa hồ sơ cá nhân"
             >
               <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
@@ -186,36 +186,36 @@ export default function App() {
           <button
             type="button"
             onClick={() => setCurrentTab('dashboard')}
-            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'dashboard' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }}
+            }`}
           >
             Tổng quan
           </button>
           <button
             type="button"
             onClick={() => setCurrentTab('family')}
-            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'family' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }}
+            }`}
           >
             Gia đình
           </button>
           <button
             type="button"
             onClick={() => setCurrentTab('privacy')}
-            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'privacy' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }}
+            }`}
           >
             Riêng tư
           </button>
           <button
             type="button"
             onClick={() => setCurrentTab('profile')}
-            className={lex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
+            className={`flex-1 py-1.5 text-center text-xs font-semibold rounded-lg shrink-0 ${
               currentTab === 'profile' ? 'bg-teal-50 text-teal-700' : 'text-slate-500'
-            }}
+            }`}
           >
             Hồ sơ
           </button>
@@ -279,7 +279,7 @@ export default function App() {
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">Chiều cao hiện tại</span>
                 <div className="text-2xl font-bold text-slate-900 mt-1">
-                  {currentUser.heightCm ? ${currentUser.heightCm} cm : 'Chưa thiết lập'}
+                  {currentUser.heightCm ? `${currentUser.heightCm} cm` : 'Chưa thiết lập'}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">Chuẩn tính chỉ số BMI cơ thể</p>
               </div>
