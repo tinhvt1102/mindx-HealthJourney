@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { 
   RotateCw, 
   Sparkles, 
@@ -12,16 +13,18 @@ import {
   Minus,
   MoveVertical,
   Loader2,
+  Info,
   User,
-  Footprints
+  Footprints,
+  Eye
 } from 'lucide-react';
 
 /**
- * 3D Human Body Viewer (Mô hình người thật vị thành niên - Chuẩn form Việt Nam)
- * - Tóc Sidepart 7/3 vuốt phồng chuẩn salon, mặt sáng lộ rõ không bị tóc che mặt.
- * - Áo thun trắng, quần đen, giày sneakers thể thao chuẩn 100%.
- * - Góc máy rộng thấy rõ 100% từ đỉnh đầu đến chân, giày và bục đứng.
- * - Chỉ hiện thông tin khi trỏ vào Đầu (Nhiệt độ), Thân (Huyết áp & Tim), Chân (Cân nặng & BMI).
+ * 3D Human Body Viewer (Mô hình con người thực tế & Tương tác Đầu - Thân - Chân)
+ * - Mô hình 3D người thật (Full mesh người vị thành niên, tóc, khuôn mặt, áo thun, quần dài, giày).
+ * - Chỉ hiện thông tin sức khỏe khi trỏ chuột / chạm vào từng vùng cơ thể (Đầu ➜ Thân nhiệt, Thân ➜ Huyết áp & Tim, Chân ➜ Cân nặng & BMI).
+ * - Tương tác co dãn theo chiều cao thực tế (heightCm).
+ * - Xoay 360 độ mượt mà, bục đứng Studio phát sáng neon.
  */
 export default function Human3DViewer({
   gender = 'MALE',
@@ -37,24 +40,28 @@ export default function Human3DViewer({
   const [isAutoRotating, setIsAutoRotating] = useState(true);
   const [isLoadingModel, setIsLoadingModel] = useState(true);
 
-  // Vùng tương tác: 'HEAD' | 'TORSO' | 'LEGS' | null
+  // Vùng cơ thể đang được trỏ vào: 'HEAD' | 'TORSO' | 'LEGS' | null
   const [hoveredZone, setHoveredZone] = useState(null);
-  const [pinnedZone, setPinnedZone] = useState(null);
+  const [pinnedZone, setPinnedZone] = useState(null); // Click để giữ cố định
   const activeZone = hoveredZone || pinnedZone;
+
+  // Tọa độ 2D của điểm tương tác trên màn hình (để vẽ đường nối holographic)
+  const [hotspotScreenPos, setHotspotScreenPos] = useState(null);
 
   // Tham chiếu Three.js
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const cameraRef = useRef(null);
   const humanGroupRef = useRef(null);
-  const bodyMeshRef = useRef(null);
-  const hairGroupRef = useRef(null);
-  const shoesGroupRef = useRef(null);
+  const loadedModelRef = useRef(null);
   const heartMeshRef = useRef(null);
   const heartLightRef = useRef(null);
   const zoneMarkerRef = useRef(null);
   const animationFrameIdRef = useRef(null);
   const raycastMeshesRef = useRef([]);
+
+  // Thông số bounding box của mô hình để tính chiều cao chuẩn
+  const modelBoxRef = useRef({ minY: -0.89, totalH: 1.68, center: new THREE.Vector3() });
 
   // Dữ liệu chỉ số sức khỏe
   const bpData = latestMetrics?.bloodPressure;
@@ -73,9 +80,7 @@ export default function Human3DViewer({
   const hrDisplay = heartData ? `${heartData.value}` : '75';
 
   const isFemale = gender === 'FEMALE';
-  const genderTitle = isFemale 
-    ? 'Nữ giới • Form người Việt (Áo thun trắng, Chân váy đen & Giày)' 
-    : 'Nam giới • Form người Việt (Sidepart 7/3, Áo thun trắng, Quần đen & Giày)';
+  const genderTitle = isFemale ? 'Nữ giới (Người thật)' : 'Nam giới (Người thật)';
 
   // Khởi tạo Three.js Scene
   useEffect(() => {
@@ -87,17 +92,17 @@ export default function Human3DViewer({
     const width = container.clientWidth || 340;
     const height = container.clientHeight || 480;
 
-    // 1. SCENE & CAMERA (TÍNH TOÁN ĐỂ THẤY RÕ 100% TỪ ĐỈNH ĐẦU ĐẾN ĐẾ GIÀY VÀ BỤC)
+    // 1. SCENE & CAMERA
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // FOV 38, Camera hạ thấp tâm ngắm Y = 0.05 và Z = 3.85 để bao quát toàn bộ chân và giày
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1000);
-    camera.position.set(0, 0.02, 3.85);
-    camera.lookAt(0, -0.06, 0);
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 1000);
+    // Camera căn chỉnh để nhìn trọn vẹn 100% từ đỉnh đầu đến chân, giày và bục đứng
+    camera.position.set(0, 0.05, 3.75);
+    camera.lookAt(0, -0.05, 0);
     cameraRef.current = camera;
 
-    // 2. RENDERER (PBR, Khử răng cưa, Tone Mapping)
+    // 2. RENDERER (PBR Tone Mapping, Khử răng cưa PCF Soft Shadows)
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -110,23 +115,24 @@ export default function Human3DViewer({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // 3. HỆ THỐNG ÁNH SÁNG STUDIO CHUYÊN NGHIỆP
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.35);
+    // 3. ÁNH SÁNG STUDIO CHUYÊN NGHIỆP
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff7ed, 1.6);
-    keyLight.position.set(2.5, 5.5, 4.0);
+    const keyLight = new THREE.DirectionalLight(0xfff7ed, 1.7);
+    keyLight.position.set(2.5, 6, 4.5);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 1024;
     keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.bias = -0.0005;
     scene.add(keyLight);
 
     const fillLight = new THREE.DirectionalLight(0xdbeafe, 1.0);
-    fillLight.position.set(-3.5, 3.5, 2.5);
+    fillLight.position.set(-3.5, 4, 3);
     scene.add(fillLight);
 
-    const backRimLight = new THREE.DirectionalLight(0x14b8a6, 1.3);
-    backRimLight.position.set(0, 4.5, -4.0);
+    const backRimLight = new THREE.DirectionalLight(0x14b8a6, 1.4);
+    backRimLight.position.set(0, 5, -4.5);
     scene.add(backRimLight);
 
     // 4. BỤC ĐỨNG STUDIO PHÁT SÁNG NEON
@@ -153,7 +159,7 @@ export default function Human3DViewer({
     glowRing.position.y = -0.89;
     scene.add(glowRing);
 
-    // Vòng tròn Holographic marker khi trỏ vào bộ phận
+    // Vòng tròn mục tiêu Holographic khi trỏ vào bộ phận cơ thể
     const markerGeo = new THREE.RingGeometry(0.06, 0.08, 32);
     const markerMat = new THREE.MeshBasicMaterial({
       color: 0x2dd4bf,
@@ -166,138 +172,77 @@ export default function Human3DViewer({
     scene.add(zoneMarker);
     zoneMarkerRef.current = zoneMarker;
 
-    // 5. NHÓM ĐỐI TƯỢNG NGƯỜI
+    // 5. NHÓM XOAY ĐỐI TƯỢNG NGƯỜI
     const humanGroup = new THREE.Group();
     scene.add(humanGroup);
     humanGroupRef.current = humanGroup;
 
     raycastMeshesRef.current = [];
 
-    // 6. NẠP MÔ HÌNH NGƯỜI THẬT (.GLB)
+    // 6. NẠP FILE MÔ HÌNH 3D NGƯỜI THẬT (.GLB) VỚI MESHOPT DECODER
     const gltfLoader = new GLTFLoader();
-    const modelPath = isFemale ? '/models/female.glb' : '/models/male.glb';
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+
+    const modelPath = isFemale ? '/models/asian_female.glb' : '/models/asian_male.glb';
 
     gltfLoader.load(
       modelPath,
       (gltf) => {
-        const bodyMesh = gltf.scene.children[0];
-        bodyMeshRef.current = bodyMesh;
+        const model = gltf.scene;
+        loadedModelRef.current = model;
 
-        // TẠO SHADER TRANG PHỤC VÀ TONE DA NGƯỜI VIỆT CHUẨN XÁC
-        const customMaterial = new THREE.MeshStandardMaterial({
-          roughness: 0.55,
-          metalness: 0.05,
-        });
+        // Tính toán kích thước chuẩn
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
 
-        customMaterial.onBeforeCompile = (shader) => {
-          shader.vertexShader = `
-            varying vec3 vLocalPosition;
-            ${shader.vertexShader}
-          `.replace(
-            '#include <begin_vertex>',
-            `
-            #include <begin_vertex>
-            vLocalPosition = position;
-            `
-          );
-
-          // FRAGMENT SHADER: ÁO THUN TRẮNG, QUẦN ĐEN/VÁY ĐEN & TONE DA VIỆT
-          shader.fragmentShader = `
-            varying vec3 vLocalPosition;
-            ${shader.fragmentShader}
-          `.replace(
-            '#include <color_fragment>',
-            `
-            #include <color_fragment>
-
-            float y = vLocalPosition.y;
-            float armDist = length(vLocalPosition.xz);
-
-            // Tone da người Việt tự nhiên
-            vec3 vietSkin = ${isFemale ? 'vec3(0.99, 0.88, 0.80)' : 'vec3(0.96, 0.80, 0.67)'};
-
-            // Áo thun trắng cotton tinh khôi
-            vec3 whiteTShirt = vec3(0.97, 0.98, 0.99);
-
-            // Quần đen / Chân váy đen
-            vec3 blackClothing = vec3(0.09, 0.09, 0.10);
-
-            vec3 baseColor = vietSkin;
-
-            ${isFemale ? `
-              // --- FORM NỮ GIỚI ---
-              if (y >= 1.50) {
-                baseColor = vietSkin; // Đầu & cổ
-              } else if (y >= 0.98 && y < 1.50) {
-                // Thân: Áo thun trắng, cánh tay để trần
-                if (armDist > 0.28 && y < 1.18) {
-                  baseColor = vietSkin;
-                } else {
-                  baseColor = whiteTShirt;
-                }
-              } else if (y >= 0.62 && y < 0.98) {
-                // Chân váy đen chữ A
-                baseColor = blackClothing;
-              } else {
-                // Đôi chân thon dài
-                baseColor = vietSkin;
-              }
-            ` : `
-              // --- FORM NAM GIỚI ---
-              if (y >= 1.50) {
-                baseColor = vietSkin; // Đầu & cổ
-              } else if (y >= 0.98 && y < 1.50) {
-                // Thân: Áo thun trắng, cánh tay để trần
-                if (armDist > 0.32 && y < 1.18) {
-                  baseColor = vietSkin;
-                } else {
-                  baseColor = whiteTShirt;
-                }
-              } else if (y >= 0.12 && y < 0.98) {
-                // Quần đen suông đứng dáng
-                baseColor = blackClothing;
-              } else {
-                baseColor = vietSkin;
-              }
-            `}
-
-            diffuseColor.rgb = baseColor;
-            `
-          );
+        const baseH = 1.68;
+        const rawH = size.y || 1;
+        modelBoxRef.current = {
+          minY: box.min.y,
+          rawH,
+          baseH,
+          center
         };
 
-        bodyMesh.material = customMaterial;
-        bodyMesh.castShadow = true;
-        bodyMesh.receiveShadow = true;
-        raycastMeshesRef.current.push(bodyMesh);
+        // Kích hoạt đổ bóng và vật liệu da/vải chân thực
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            raycastMeshesRef.current.push(child);
+            if (child.material) {
+              child.material.roughness = Math.max(0.42, child.material.roughness || 0.5);
+              child.material.metalness = Math.min(0.12, child.material.metalness || 0.05);
+            }
+          }
+        });
 
-        humanGroup.add(bodyMesh);
+        // Áp dụng chiều cao
+        applyHeightToModel(model, heightCm);
 
-        // THÊM ĐÔI GIÀY SNEAKERS CHUẨN XÁC ĐẶT NGAY TRÊN MẶT BỤC
-        buildShoesForModel(humanGroup, isFemale);
+        humanGroup.add(model);
 
-        // THÊM MÁI TÓC 3D SIDEPART 7/3 (NAM) HOẶC TÓC BUỘC NỬA (NỮ) VỪA VẶN TRÊN ĐỈNH ĐẦU
-        buildHairForModel(humanGroup, isFemale, heightCm);
-
-        // TRÁI TIM 3D PHÁT SÁNG Ở LỒNG NGỰC (ÁNH SÁNG GỌN KHÔNG BỊ LOANG ĐỎ LÊN CẰM)
+        // Trái tim 3D phát sáng ở lồng ngực
         const heartGeo = new THREE.SphereGeometry(0.035, 16, 16);
         const heartMat = new THREE.MeshBasicMaterial({ color: 0xff1744 });
         const heartMesh = new THREE.Mesh(heartGeo, heartMat);
+        heartMesh.position.set(0.06, 0.32, 0.15);
         humanGroup.add(heartMesh);
         heartMeshRef.current = heartMesh;
 
-        const heartLight = new THREE.PointLight(0xff1744, 1.2, 0.45);
+        const heartLight = new THREE.PointLight(0xff1744, 1.3, 0.65);
+        heartLight.position.set(0.06, 0.32, 0.2);
         humanGroup.add(heartLight);
         heartLightRef.current = heartLight;
-
-        // Áp dụng tỷ lệ chiều cao
-        applyScaleToBody(heightCm);
 
         setIsLoadingModel(false);
       },
       undefined,
-      (err) => {
-        console.error('Lỗi khi nạp mô hình MakeHuman:', err);
+      (error) => {
+        console.error('Không thể tải mô hình 3D GLB, đang chuyển sang mô hình dựng sẵn:', error);
+        // Fallback mô hình người hữu cơ
+        buildOrganicFallback(humanGroup, gender, heightCm);
         setIsLoadingModel(false);
       }
     );
@@ -319,6 +264,7 @@ export default function Human3DViewer({
         const hit = intersects[0];
         const worldPos = hit.point;
 
+        // Vị trí mặt sàn bục đứng
         const floorY = -0.89;
         const currentH = 1.68 * ((Number(heightCm) || 170) / 170);
         const relativeY = worldPos.y - floorY;
@@ -333,12 +279,19 @@ export default function Human3DViewer({
           zone = 'LEGS'; // CHÂN (Cân nặng & BMI)
         }
 
+        // Cập nhật vị trí vòng marker Holographic
         if (zoneMarkerRef.current) {
           zoneMarkerRef.current.position.copy(worldPos);
           zoneMarkerRef.current.position.z += 0.02;
           zoneMarkerRef.current.lookAt(camera.position);
           zoneMarkerRef.current.visible = true;
         }
+
+        // Tọa độ 2D trên container
+        setHotspotScreenPos({
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        });
 
         return zone;
       }
@@ -377,6 +330,7 @@ export default function Human3DViewer({
     const handleMouseUp = (e) => {
       isDraggingRef.current = false;
       renderer.domElement.style.cursor = 'grab';
+      // Nếu là click nhẹ (không kéo xoay), ghim/bỏ ghim vùng cơ thể
       if (dragDist < 5) {
         const zone = detectBodyZone(e.clientX, e.clientY);
         setPinnedZone((prev) => (prev === zone ? null : zone));
@@ -416,7 +370,7 @@ export default function Human3DViewer({
       animationFrameIdRef.current = requestAnimationFrame(animate);
       const elapsed = clock.getElapsedTime();
 
-      // Tự động xoay chậm nhẹ nhàng khi không kéo
+      // Tự động xoay chậm khi người dùng không kéo
       if (isAutoRotating && !isDraggingRef.current && humanGroupRef.current) {
         humanGroupRef.current.rotation.y += 0.005;
       }
@@ -428,13 +382,18 @@ export default function Human3DViewer({
         const pulse = Math.max(0, Math.sin(elapsed * speed)) + Math.max(0, Math.sin(elapsed * speed + 0.3)) * 0.4;
         const scale = 1 + pulse * (isChest ? 0.35 : 0.2);
         heartMeshRef.current.scale.set(scale, scale, scale);
-        heartLightRef.current.intensity = (isChest ? 2.0 : 1.0) + pulse * 1.5;
+        heartLightRef.current.intensity = (isChest ? 2.5 : 1.2) + pulse * 2.2;
       }
 
-      // Marker nhấp nháy
+      // Vòng Holographic marker nhấp nháy
       if (zoneMarkerRef.current && zoneMarkerRef.current.visible) {
         const pulse = Math.sin(elapsed * 6) * 0.15 + 1.0;
         zoneMarkerRef.current.scale.set(pulse, pulse, pulse);
+      }
+
+      // Nhịp thở hô hấp nhẹ tự nhiên
+      if (loadedModelRef.current) {
+        loadedModelRef.current.position.y += Math.sin(elapsed * 1.5) * 0.0003;
       }
 
       renderer.render(scene, camera);
@@ -478,239 +437,75 @@ export default function Human3DViewer({
     };
   }, [gender]);
 
-  // CO DÃN CHIỀU CAO TOÀN DIỆN CHO MÔ HÌNH THẬT, TÓC VÀ TIM
-  const applyScaleToBody = (currentH) => {
-    const mesh = bodyMeshRef.current;
-    if (!mesh) return;
+  // HÀM CO DÃN MÔ HÌNH 3D THEO CHIỀU CAO THỰC TẾ
+  const applyHeightToModel = (model, currentH) => {
+    if (!model) return;
+    const { rawH, baseH, center, minY } = modelBoxRef.current;
 
     const heightFactor = Math.max(0.72, Math.min(1.35, (Number(currentH) || 170) / 170));
-    const targetHeight = 1.68 * heightFactor;
-    const baseH = 1.80; // Model MakeHuman cao 1.80m
-    const scale = targetHeight / baseH;
+    const targetH = baseH * heightFactor;
+    const scaleY = targetH / (rawH || 1);
+    const scaleXZ = (baseH / (rawH || 1)) * (1 + (heightFactor - 1) * 0.35);
 
-    const scaleY = scale;
-    const scaleXZ = (1.68 / baseH) * (1 + (heightFactor - 1) * 0.35);
+    model.scale.set(scaleXZ, scaleY, scaleXZ);
 
-    mesh.scale.set(scaleXZ, scaleY, scaleXZ);
-
-    // Chân luôn đứng vững chắc trên mặt sàn bục đứng (-0.89)
+    // Chân luôn đứng vững trên bục (-0.89)
     const floorY = -0.89;
-    mesh.position.set(0, floorY, 0);
-
-    // Cập nhật vị trí tóc theo đỉnh đầu
-    if (hairGroupRef.current) {
-      // Đỉnh đầu MakeHuman ở local y = 1.80, centerZ = (isFemale ? 0.063 : 0.068) * scaleXZ
-      const headCenterZ = (isFemale ? 0.063 : 0.068) * scaleXZ;
-      const headTopY = floorY + 1.80 * scaleY;
-      hairGroupRef.current.position.set(0, headTopY, headCenterZ);
-      hairGroupRef.current.scale.set(scaleXZ, scaleY, scaleXZ);
-    }
-
-    // Cập nhật vị trí và tỷ lệ đôi giày sneakers ôm sát bàn chân
-    if (shoesGroupRef.current) {
-      shoesGroupRef.current.position.set(0, floorY, 0);
-      shoesGroupRef.current.scale.set(scaleXZ, 1, scaleXZ);
-    }
+    const scaledMinY = minY * scaleY;
+    model.position.set(
+      -(center?.x || 0) * scaleXZ,
+      floorY - scaledMinY,
+      -(center?.z || 0) * scaleXZ
+    );
 
     // Cập nhật vị trí trái tim theo lồng ngực
     if (heartMeshRef.current && heartLightRef.current) {
-      const chestY = floorY + targetHeight * 0.68;
-      heartMeshRef.current.position.set(0.055 * scaleXZ, chestY, 0.14 * scaleXZ);
-      heartLightRef.current.position.set(0.055 * scaleXZ, chestY, 0.18 * scaleXZ);
+      const chestY = floorY + targetH * 0.68;
+      heartMeshRef.current.position.y = chestY;
+      heartLightRef.current.position.y = chestY;
     }
   };
 
+  // Cập nhật khi prop heightCm thay đổi
   useEffect(() => {
-    applyScaleToBody(heightCm);
+    if (loadedModelRef.current) {
+      applyHeightToModel(loadedModelRef.current, heightCm);
+    }
   }, [heightCm]);
 
-  // =========================================================================
-  // XÂY DỰNG MÁI TÓC 3D CHUẨN XÁC TRÊN ĐỈNH ĐẦU (KHÔNG BỊ CHE MẶT)
-  // =========================================================================
-  const buildHairForModel = (group, isFem, currentH) => {
-    if (hairGroupRef.current) {
-      group.remove(hairGroupRef.current);
-    }
+  // DỰNG MÔ HÌNH HỮU CƠ TỰ NHIÊN (FALLBACK NẾU FILE GLB CẦN THỜI GIAN TẢI)
+  const buildOrganicFallback = (group, userGender, userHeight) => {
+    const isFem = userGender === 'FEMALE';
+    const skinMat = new THREE.MeshStandardMaterial({ color: isFem ? 0xfce5d4 : 0xf5cca9, roughness: 0.52 });
+    const clothesMat = new THREE.MeshStandardMaterial({ color: isFem ? 0xf472b6 : 0x0f766e, roughness: 0.7 });
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 });
 
-    const hairMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1816, // Đen tự nhiên của người Việt
-      roughness: 0.65,
-      metalness: 0.08,
+    const headGeo = new THREE.SphereGeometry(0.125, 32, 24);
+    headGeo.scale(1, 1.25, 1.05);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 1.35;
+    head.castShadow = true;
+    group.add(head);
+    raycastMeshesRef.current.push(head);
+
+    const torsoGeo = new THREE.CylinderGeometry(0.2, 0.16, 0.45, 24);
+    const torso = new THREE.Mesh(torsoGeo, clothesMat);
+    torso.position.y = 0.96;
+    torso.castShadow = true;
+    group.add(torso);
+    raycastMeshesRef.current.push(torso);
+
+    [-0.09, 0.09].forEach((legX) => {
+      const legGeo = new THREE.CylinderGeometry(0.065, 0.05, 1.05, 16);
+      const leg = new THREE.Mesh(legGeo, pantsMat);
+      leg.position.set(legX, 0.18, 0);
+      leg.castShadow = true;
+      group.add(leg);
+      raycastMeshesRef.current.push(leg);
     });
 
-    const hairGroup = new THREE.Group();
-    hairGroupRef.current = hairGroup;
-
-    if (isFem) {
-      // NỮ: TÓC DÀI XÕA QUA VAI + PHẦN TRÊN BUỘC TÚM NỬA ĐẦU GỌN GÀNG DUYÊN DÁNG
-      // 1. Vòm tóc ôm đỉnh đầu và sau gáy (trán và khuôn mặt hoàn toàn thông thoáng)
-      const hairCapGeo = new THREE.SphereGeometry(0.098, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.54);
-      hairCapGeo.scale(1.0, 0.95, 1.15);
-      const hairCap = new THREE.Mesh(hairCapGeo, hairMat);
-      hairCap.position.set(0, -0.015, -0.015);
-      hairGroup.add(hairCap);
-      raycastMeshesRef.current.push(hairCap);
-
-      // 2. Búi buộc túm nửa đầu phía sau gáy
-      const ponytailGeo = new THREE.CylinderGeometry(0.028, 0.038, 0.14, 16);
-      const ponytail = new THREE.Mesh(ponytailGeo, hairMat);
-      ponytail.position.set(0, -0.06, -0.125);
-      ponytail.rotation.x = -0.30;
-      hairGroup.add(ponytail);
-
-      // 3. Chiếc nơ đỏ thắt tóc xinh xắn
-      const bowGeo = new THREE.SphereGeometry(0.020, 12, 12);
-      const bowMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.35 });
-      const bow = new THREE.Mesh(bowGeo, bowMat);
-      bow.position.set(0, -0.03, -0.118);
-      hairGroup.add(bow);
-
-      // 4. Mái tóc dài buông xõa mượt mà sau lưng
-      const backHairGeo = new THREE.CylinderGeometry(0.10, 0.07, 0.44, 16);
-      backHairGeo.scale(1.0, 1.0, 0.55);
-      const backHair = new THREE.Mesh(backHairGeo, hairMat);
-      backHair.position.set(0, -0.25, -0.10);
-      backHair.rotation.x = -0.08;
-      hairGroup.add(backHair);
-
-      // 5. Hai lọn tóc mai buông lơi duyên dáng hai bên tai
-      [-0.096, 0.096].forEach((xSide) => {
-        const sideHairGeo = new THREE.CylinderGeometry(0.022, 0.012, 0.30, 12);
-        const sideHair = new THREE.Mesh(sideHairGeo, hairMat);
-        sideHair.position.set(xSide, -0.18, 0.025);
-        sideHair.rotation.z = (xSide > 0 ? -1 : 1) * 0.08;
-        hairGroup.add(sideHair);
-      });
-
-    } else {
-      // NAM: TÓC SIDEPART 7/3 GỌN GÀNG LỊCH LÃM (VUỐT PHỒNG, TRÁN SÁNG SỦA, KHÔNG CHE MẶT)
-      // 1. Vòm tóc ôm đỉnh đầu và sau gáy
-      const hairCapGeo = new THREE.SphereGeometry(0.096, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.52);
-      hairCapGeo.scale(1.0, 0.95, 1.15);
-      const hairCap = new THREE.Mesh(hairCapGeo, hairMat);
-      hairCap.position.set(0, -0.015, -0.015);
-      hairGroup.add(hairCap);
-      raycastMeshesRef.current.push(hairCap);
-
-      // 2. Mái rẽ ngôi 7/3 - Phần 70% bên phải (x > -0.02) vuốt phồng bồng bềnh sang phải
-      const part7Geo = new THREE.BoxGeometry(0.092, 0.036, 0.065);
-      const part7 = new THREE.Mesh(part7Geo, hairMat);
-      part7.position.set(0.042, -0.015, 0.055);
-      part7.rotation.set(0.12, 0.10, -0.12);
-      hairGroup.add(part7);
-      raycastMeshesRef.current.push(part7);
-
-      // 3. Mái rẽ ngôi 7/3 - Phần 30% bên trái (x < -0.02) chải mượt ép nhẹ sang thái dương trái
-      const part3Geo = new THREE.BoxGeometry(0.048, 0.032, 0.055);
-      const part3 = new THREE.Mesh(part3Geo, hairMat);
-      part3.position.set(-0.048, -0.022, 0.052);
-      part3.rotation.set(0.10, -0.08, 0.18);
-      hairGroup.add(part3);
-      raycastMeshesRef.current.push(part3);
-
-      // 4. Tóc mai hai bên mang tai tỉa vát gọn gàng
-      [-0.096, 0.096].forEach((sideX) => {
-        const sideBurnGeo = new THREE.BoxGeometry(0.015, 0.055, 0.035);
-        const sideBurn = new THREE.Mesh(sideBurnGeo, hairMat);
-        sideBurn.position.set(sideX, -0.075, 0.015);
-        hairGroup.add(sideBurn);
-      });
-
-      // 5. Phần tóc gáy tỉa sát thanh lịch
-      const napeGeo = new THREE.BoxGeometry(0.08, 0.055, 0.025);
-      const nape = new THREE.Mesh(napeGeo, hairMat);
-      nape.position.set(0, -0.09, -0.095);
-      hairGroup.add(nape);
-    }
-
-    group.add(hairGroup);
-  };
-
-  // =========================================================================
-  // XÂY DỰNG ĐÔI GIÀY SNEAKERS THỂ THAO ĐỨNG VỮNG TRÊN MẶT BỤC
-  // =========================================================================
-  const buildShoesForModel = (group, isFem) => {
-    if (shoesGroupRef.current) {
-      group.remove(shoesGroupRef.current);
-    }
-
-    const shoesGroup = new THREE.Group();
-    shoesGroupRef.current = shoesGroup;
-
-    // Chất liệu da sneakers trắng cao cấp
-    const shoeWhiteMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.28,
-      metalness: 0.12,
-    });
-
-    // Đế cao su thể thao đen / xám đậm
-    const soleBlackMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.6,
-    });
-
-    // Viền chi tiết thể thao ngọc teal (đồng bộ giao diện HealthJourney)
-    const accentMat = new THREE.MeshStandardMaterial({
-      color: 0x0d9488,
-      roughness: 0.35,
-    });
-
-    const footX = isFem ? 0.196 : 0.208;
-    const footZ = isFem ? 0.107 : 0.090;
-
-    [-footX, footX].forEach((sideX) => {
-      // 1. ĐẾ GIÀY THỂ THAO ĐỨNG VỮNG TRÊN MẶT SÀN BỤC ĐỨNG
-      const soleGeo = new THREE.BoxGeometry(0.116, 0.032, 0.288);
-      const sole = new THREE.Mesh(soleGeo, soleBlackMat);
-      sole.position.set(sideX, 0.016, footZ);
-      sole.receiveShadow = true;
-      shoesGroup.add(sole);
-
-      // 2. ĐẾ ĐỆM GIỮA (MIDSOLE) VIỀN TRẮNG CHỐNG SỐC
-      const midsoleGeo = new THREE.BoxGeometry(0.114, 0.018, 0.282);
-      const midsole = new THREE.Mesh(midsoleGeo, shoeWhiteMat);
-      midsole.position.set(sideX, 0.040, footZ);
-      shoesGroup.add(midsole);
-
-      // 3. THÂN GIÀY SNEAKERS TRẮNG ÔM TRỌN BÀN CHÂN
-      const upperGeo = new THREE.BoxGeometry(0.112, 0.065, 0.270);
-      const upper = new THREE.Mesh(upperGeo, shoeWhiteMat);
-      upper.position.set(sideX, 0.065, footZ - 0.005);
-      upper.castShadow = true;
-      shoesGroup.add(upper);
-      raycastMeshesRef.current.push(upper);
-
-      // 4. MŨI GIÀY BO TRÒN THỜI TRANG ÔM CÁC NGÓN CHÂN
-      const toeGeo = new THREE.CylinderGeometry(0.052, 0.056, 0.075, 16);
-      toeGeo.scale(1, 1, 0.72);
-      const toe = new THREE.Mesh(toeGeo, shoeWhiteMat);
-      toe.position.set(sideX, 0.048, footZ + 0.105);
-      shoesGroup.add(toe);
-
-      // 5. CỔ GIÀY & LƯỠI GÀ ÔM MẮT CÁ CHÂN GỌN GÀNG
-      const collarGeo = new THREE.BoxGeometry(0.096, 0.045, 0.110);
-      const collar = new THREE.Mesh(collarGeo, soleBlackMat);
-      collar.position.set(sideX, 0.095, footZ - 0.035);
-      shoesGroup.add(collar);
-
-      // 6. ĐƯỜNG SỌC THỂ THAO ĐIỂM NHẤN
-      const stripeGeo = new THREE.BoxGeometry(0.115, 0.010, 0.14);
-      const stripe = new THREE.Mesh(stripeGeo, accentMat);
-      stripe.position.set(sideX, 0.055, footZ);
-      shoesGroup.add(stripe);
-
-      // Chi tiết nữ: nơ đỏ điểm xuyết trên giày
-      if (isFem) {
-        const bowGeo = new THREE.SphereGeometry(0.014, 8, 8);
-        const bowMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
-        const bow = new THREE.Mesh(bowGeo, bowMat);
-        bow.position.set(sideX, 0.10, footZ + 0.05);
-        shoesGroup.add(bow);
-      }
-    });
-
-    group.add(shoesGroup);
+    modelBoxRef.current = { rawH: 1.68, baseH: 1.68, center: new THREE.Vector3(0, 0.65, 0), minY: -0.35 };
+    applyHeightToModel(group, userHeight);
   };
 
   const handleResetView = () => {
@@ -740,7 +535,7 @@ export default function Human3DViewer({
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-teal-300 uppercase tracking-wider shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            Mô hình 3D Người thật • Form Việt Nam
+            Mô hình 3D Người thật
           </div>
           <h3 className="text-lg font-bold text-white mt-1">
             {fullName || 'Người dùng'}
@@ -765,8 +560,8 @@ export default function Human3DViewer({
         </button>
       </div>
 
-      {/* KHÔNG GIAN 3D WEBGL CONTAINER (THẤY RÕ TOÀN THÂN TỪ ĐẦU ĐẾN ĐẾ GIÀY) */}
-      <div className="relative my-2 w-full h-[450px] sm:h-[500px] flex items-center justify-center select-none overflow-hidden rounded-2xl">
+      {/* KHÔNG GIAN 3D WEBGL CONTAINER */}
+      <div className="relative my-2 w-full h-[440px] sm:h-[490px] flex items-center justify-center select-none overflow-hidden rounded-2xl">
         <div ref={mountRef} className="w-full h-full" />
 
         {/* Loading Indicator */}
@@ -802,12 +597,12 @@ export default function Human3DViewer({
         </div>
 
         {/* ============================================================== */}
-        {/* CHỈ HIỆN THÔNG TIN KHI TRỎ / CHẠM VÀO ĐẦU - THÂN - CHÂN         */}
+        {/* THẺ HUD CHỈ HIỂN THỊ KHI TRỎ VÀO HOẶC CLICK VÀO VÙNG CƠ THỂ    */}
         {/* ============================================================== */}
 
         {/* 1. THẺ VÙNG ĐẦU -> HIỆN NHIỆT ĐỘ THÂN THỂ */}
         {activeZone === 'HEAD' && (
-          <div className="absolute right-3 top-4 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-amber-400 shadow-2xl shadow-amber-500/25 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
+          <div className="absolute right-3 top-4 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-amber-400 shadow-2xl shadow-amber-500/20 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
             <div className="flex items-center justify-between gap-3 text-amber-400 font-bold text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Thermometer className="w-4 h-4 text-amber-400" />
@@ -830,7 +625,7 @@ export default function Human3DViewer({
 
         {/* 2. THẺ VÙNG THÂN -> HIỆN HUYẾT ÁP & NHỊP TIM */}
         {activeZone === 'TORSO' && (
-          <div className="absolute right-3 top-28 sm:top-32 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-rose-400 shadow-2xl shadow-rose-500/25 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
+          <div className="absolute right-3 top-28 sm:top-32 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-rose-400 shadow-2xl shadow-rose-500/20 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
             <div className="flex items-center justify-between gap-3 text-rose-400 font-bold text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Heart className="w-4 h-4 fill-rose-500 text-rose-500 animate-pulse" />
@@ -847,14 +642,14 @@ export default function Human3DViewer({
               <span>Nhịp tim: <strong className="text-teal-300">{hrDisplay} bpm</strong></span>
             </div>
             <span className="inline-block text-[9px] font-semibold text-emerald-400 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-500/30">
-              ✓ Huyết áp ổn định
+              ✓ Huyết áp bình thường
             </span>
           </div>
         )}
 
         {/* 3. THẺ VÙNG CHÂN -> HIỆN CÂN NẶNG & CHỈ SỐ BMI */}
         {activeZone === 'LEGS' && (
-          <div className="absolute left-10 bottom-8 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-teal-400 shadow-2xl shadow-teal-500/25 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
+          <div className="absolute left-4 sm:left-8 bottom-12 z-30 p-3 rounded-2xl bg-slate-900/95 backdrop-blur-md border-2 border-teal-400 shadow-2xl shadow-teal-500/20 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-200 pointer-events-auto">
             <div className="flex items-center justify-between gap-3 text-teal-300 font-bold text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-teal-400" />
@@ -870,10 +665,10 @@ export default function Human3DViewer({
               </span>
             </div>
             <div className="text-[10px] text-slate-300">
-              Chiều cao {heightCm} cm & cân nặng chuẩn form
+              Tỷ lệ chiều cao {heightCm} cm & cân nặng cân đối
             </div>
             <span className="inline-block text-[9px] font-semibold text-teal-300 bg-teal-950/90 px-2 py-0.5 rounded border border-teal-500/30">
-              ✓ Thể trạng cân đối
+              ✓ Vóc dáng cân đối
             </span>
           </div>
         )}
