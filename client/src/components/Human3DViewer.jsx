@@ -10,13 +10,9 @@ import {
   Thermometer, 
   Scale, 
   Plus, 
-  Minus,
-  MoveVertical,
   Loader2,
-  Info,
   User,
-  Footprints,
-  Eye
+  Footprints
 } from 'lucide-react';
 
 /**
@@ -54,8 +50,6 @@ export default function Human3DViewer({
   const cameraRef = useRef(null);
   const humanGroupRef = useRef(null);
   const loadedModelRef = useRef(null);
-  const heartMeshRef = useRef(null);
-  const heartLightRef = useRef(null);
   const zoneMarkerRef = useRef(null);
   const animationFrameIdRef = useRef(null);
   const raycastMeshesRef = useRef([]);
@@ -80,7 +74,7 @@ export default function Human3DViewer({
   const hrDisplay = heartData ? `${heartData.value}` : '75';
 
   const isFemale = gender === 'FEMALE';
-  const genderTitle = isFemale ? 'Nữ giới (Người thật)' : 'Nam giới (Người thật)';
+  const genderTitle = isFemale ? 'Nữ giới' : 'Nam giới';
 
   // Khởi tạo Three.js Scene
   useEffect(() => {
@@ -205,7 +199,7 @@ export default function Human3DViewer({
           center
         };
 
-        // Kích hoạt đổ bóng và vật liệu da/vải chân thực
+        // Kích hoạt đổ bóng, vật liệu da/vải chân thực và chỉnh tay buông xuôi tự nhiên
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -216,25 +210,22 @@ export default function Human3DViewer({
               child.material.metalness = Math.min(0.12, child.material.metalness || 0.05);
             }
           }
+          // Chỉnh tư thế hai cánh tay buông xuôi tự nhiên dọc theo thân người
+          if (child.isBone || child.type === 'Bone') {
+            if (child.name === 'RightArm') {
+              child.rotation.x += 1.30;
+              child.rotation.z += 0.08;
+            } else if (child.name === 'LeftArm') {
+              child.rotation.x += 1.30;
+              child.rotation.z -= 0.08;
+            }
+          }
         });
 
         // Áp dụng chiều cao
         applyHeightToModel(model, heightCm);
 
         humanGroup.add(model);
-
-        // Trái tim 3D phát sáng ở lồng ngực
-        const heartGeo = new THREE.SphereGeometry(0.035, 16, 16);
-        const heartMat = new THREE.MeshBasicMaterial({ color: 0xff1744 });
-        const heartMesh = new THREE.Mesh(heartGeo, heartMat);
-        heartMesh.position.set(0.06, 0.32, 0.15);
-        humanGroup.add(heartMesh);
-        heartMeshRef.current = heartMesh;
-
-        const heartLight = new THREE.PointLight(0xff1744, 1.3, 0.65);
-        heartLight.position.set(0.06, 0.32, 0.2);
-        humanGroup.add(heartLight);
-        heartLightRef.current = heartLight;
 
         setIsLoadingModel(false);
       },
@@ -375,16 +366,6 @@ export default function Human3DViewer({
         humanGroupRef.current.rotation.y += 0.005;
       }
 
-      // Trái tim đập phát sáng sinh học (đập nhanh hơn khi trỏ vào ngực)
-      if (heartMeshRef.current && heartLightRef.current) {
-        const isChest = hoveredZone === 'TORSO' || pinnedZone === 'TORSO';
-        const speed = isChest ? 6.5 : 4.5;
-        const pulse = Math.max(0, Math.sin(elapsed * speed)) + Math.max(0, Math.sin(elapsed * speed + 0.3)) * 0.4;
-        const scale = 1 + pulse * (isChest ? 0.35 : 0.2);
-        heartMeshRef.current.scale.set(scale, scale, scale);
-        heartLightRef.current.intensity = (isChest ? 2.5 : 1.2) + pulse * 2.2;
-      }
-
       // Vòng Holographic marker nhấp nháy
       if (zoneMarkerRef.current && zoneMarkerRef.current.visible) {
         const pulse = Math.sin(elapsed * 6) * 0.15 + 1.0;
@@ -457,13 +438,6 @@ export default function Human3DViewer({
       floorY - scaledMinY,
       -(center?.z || 0) * scaleXZ
     );
-
-    // Cập nhật vị trí trái tim theo lồng ngực
-    if (heartMeshRef.current && heartLightRef.current) {
-      const chestY = floorY + targetH * 0.68;
-      heartMeshRef.current.position.y = chestY;
-      heartLightRef.current.position.y = chestY;
-    }
   };
 
   // Cập nhật khi prop heightCm thay đổi
@@ -504,22 +478,18 @@ export default function Human3DViewer({
       raycastMeshesRef.current.push(leg);
     });
 
+    // Cánh tay buông xuôi tự nhiên dọc theo thân người
+    [-0.23, 0.23].forEach((armX) => {
+      const armGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.65, 16);
+      const arm = new THREE.Mesh(armGeo, skinMat);
+      arm.position.set(armX, 0.82, 0);
+      arm.castShadow = true;
+      group.add(arm);
+      raycastMeshesRef.current.push(arm);
+    });
+
     modelBoxRef.current = { rawH: 1.68, baseH: 1.68, center: new THREE.Vector3(0, 0.65, 0), minY: -0.35 };
     applyHeightToModel(group, userHeight);
-  };
-
-  const handleResetView = () => {
-    if (humanGroupRef.current) humanGroupRef.current.rotation.y = 0;
-  };
-  const handleTurnBack = () => {
-    if (humanGroupRef.current) humanGroupRef.current.rotation.y = Math.PI;
-  };
-
-  const handleAdjustHeight = (delta) => {
-    const newH = Math.max(120, Math.min(220, (Number(heightCm) || 170) + delta));
-    if (onHeightChange) {
-      onHeightChange(newH);
-    }
   };
 
   const laserPercentage = Math.max(12, Math.min(88, ((Number(heightCm) || 170) - 120) / (220 - 120) * 100));
@@ -535,7 +505,7 @@ export default function Human3DViewer({
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-teal-300 uppercase tracking-wider shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            Mô hình 3D Người thật
+            Mô hình 3D
           </div>
           <h3 className="text-lg font-bold text-white mt-1">
             {fullName || 'Người dùng'}
@@ -568,7 +538,7 @@ export default function Human3DViewer({
         {isLoadingModel && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/85 backdrop-blur-sm z-30">
             <Loader2 className="w-8 h-8 text-teal-400 animate-spin mb-2" />
-            <span className="text-xs font-semibold text-slate-300">Đang nạp mô hình người thật...</span>
+            <span className="text-xs font-semibold text-slate-300">Đang tải mô hình 3D...</span>
           </div>
         )}
 
@@ -716,62 +686,19 @@ export default function Human3DViewer({
         </div>
       </div>
 
-      {/* THANH TƯƠNG TÁC CHIỀU CAO & ĐIỀU KHIỂN GÓC NHÌN */}
-      <div className="relative z-20 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
-        {/* Bộ tương tác chiều cao */}
-        <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-white/10">
-          <MoveVertical className="w-3.5 h-3.5 text-teal-400" />
-          <span className="text-[11px] text-slate-300">Chiều cao:</span>
+      {/* NÚT GHI CHỈ SỐ Ở DƯỚI CÙNG */}
+      {onOpenLogModal && (
+        <div className="relative z-20 pt-3 border-t border-white/10 flex items-center justify-end">
           <button
             type="button"
-            onClick={() => handleAdjustHeight(-2)}
-            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer transition-all"
-            title="Giảm 2cm"
+            onClick={onOpenLogModal}
+            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-teal-600/30 active:scale-95"
           >
-            <Minus className="w-3 h-3" />
-          </button>
-          <span className="font-mono font-bold text-teal-300 text-xs px-1">
-            {heightCm} cm
-          </span>
-          <button
-            type="button"
-            onClick={() => handleAdjustHeight(2)}
-            className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer transition-all"
-            title="Tăng 2cm"
-          >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-4 h-4" />
+            <span>Ghi chỉ số</span>
           </button>
         </div>
-
-        {/* Nút xoay góc nhìn & Ghi chỉ số */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button
-            type="button"
-            onClick={handleResetView}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
-          >
-            Mặt trước
-          </button>
-          <button
-            type="button"
-            onClick={handleTurnBack}
-            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[11px] font-semibold cursor-pointer transition-colors"
-          >
-            Mặt sau
-          </button>
-
-          {onOpenLogModal && (
-            <button
-              type="button"
-              onClick={onOpenLogModal}
-              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-teal-600/30 active:scale-95 ml-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Ghi chỉ số</span>
-            </button>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
