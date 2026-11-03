@@ -262,9 +262,10 @@ const buildFallbackSummary = (grouped, ownerName) => {
   return md;
 };
 
-// ============================================================
-// Export: Hàm chính generateHealthSummary
-// ============================================================
+/** Client factory phục vụ việc mock trong test (SCRUM-59) */
+export const geminiClientFactory = {
+  createClient: (apiKey) => new GoogleGenerativeAI(apiKey),
+};
 
 /**
  * Gọi Gemini API để tóm tắt xu hướng sức khỏe.
@@ -292,8 +293,8 @@ export const generateHealthSummary = async (records, ownerUser, isSelfView = tru
   try {
     const prompt = buildGeminiPrompt(grouped, ownerName, isSelfView);
 
-    // Khởi tạo Gemini client
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Khởi tạo Gemini client qua factory để hỗ trợ Mock Test
+    const genAI = geminiClientFactory.createClient(apiKey);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       generationConfig: {
