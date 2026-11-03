@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
@@ -122,6 +122,10 @@ export const familyService = {
     const res = await api.post(`/families/${familyId}/invite`, { email });
     return res.data;
   },
+  getMemberHealthOverview: async (familyId, memberId) => {
+    const res = await api.get(`/families/${familyId}/members/${memberId}/health-overview`);
+    return res.data;
+  },
 };
 
 export const invitationService = {
@@ -150,6 +154,13 @@ export const policyService = {
   },
   updatePolicies: async (familyId, data) => {
     const res = await api.put(`/families/${familyId}/policies`, data);
+    return res.data;
+  },
+};
+
+export const aiService = {
+  summarizeTrends: async (params = {}) => {
+    const res = await api.post('/ai/summarize-trends', params);
     return res.data;
   },
 };

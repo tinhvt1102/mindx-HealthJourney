@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
@@ -6,6 +6,7 @@ import userRoutes from './routes/user.routes.js';
 import healthRecordRoutes from './routes/healthRecord.routes.js';
 import familyRoutes from './routes/family.routes.js';
 import invitationRoutes from './routes/invitation.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 
@@ -33,6 +34,8 @@ app.use('/api/families', familyRoutes);
 app.use('/api/v1/families', familyRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

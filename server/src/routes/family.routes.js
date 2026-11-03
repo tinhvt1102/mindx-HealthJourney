@@ -16,7 +16,7 @@ import {
 } from '../controllers/policy.controller.js';
 import { validateUpdatePolicy } from '../middlewares/policyValidation.middleware.js';
 import { healthAccessControl } from '../middlewares/healthAccessControl.js';
-import { getFamilyMemberHealthRecords } from '../controllers/healthRecord.controller.js';
+import { getFamilyMemberHealthRecords, getFamilyMemberHealthOverview } from '../controllers/healthRecord.controller.js';
 
 const router = express.Router();
 
@@ -48,6 +48,14 @@ router.get(
   '/:familyId/members/:memberId/health-records',
   healthAccessControl,
   getFamilyMemberHealthRecords
+);
+
+
+// Endpoint lấy tổng quan chỉ số sức khỏe của thành viên có kiểm soát quyền SharingPolicy & Đánh giá ngưỡng y khoa (Jira SCRUM-50 / SCRUM-52)
+router.get(
+  '/:familyId/members/:memberId/health-overview',
+  healthAccessControl,
+  getFamilyMemberHealthOverview
 );
 
 export default router;

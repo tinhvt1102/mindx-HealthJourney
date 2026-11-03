@@ -33,6 +33,8 @@ import {
 } from 'recharts';
 import { healthRecordService } from '../services/api';
 import HealthRecordModal from './HealthRecordModal';
+import HealthAlertBadge from './HealthAlertBadge';
+import AiSummaryCard from './AiSummaryCard';
 
 const METRICS_META = {
   BLOOD_PRESSURE: {
@@ -602,9 +604,16 @@ export default function HealthTrackerPage({ currentUser, onOpenLogModal }) {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <span className="font-extrabold text-slate-900 text-sm">
-                            {resultText}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-slate-900 text-sm">
+                              {resultText}
+                            </span>
+                            <HealthAlertBadge
+                              metricType={rec.type}
+                              values={rec}
+                              size="sm"
+                            />
+                          </div>
                         </td>
 
                         <td className="py-3.5 px-4 text-slate-500">
