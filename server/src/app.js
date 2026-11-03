@@ -5,6 +5,7 @@ import userRoutes from './routes/user.routes.js';
 import healthRecordRoutes from './routes/healthRecord.routes.js';
 import familyRoutes from './routes/family.routes.js';
 import invitationRoutes from './routes/invitation.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 const app = express();
 
@@ -34,6 +35,10 @@ app.use('/api/families', familyRoutes);
 app.use('/api/v1/families', familyRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/v1/invitations', invitationRoutes);
+
+// AI Routes (Jira SCRUM-55/56/57)
+app.use('/api/ai', aiRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // 404 Handler
 app.use((req, res) => {
