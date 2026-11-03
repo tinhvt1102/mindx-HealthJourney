@@ -1,4 +1,5 @@
-import { HealthRecord, DEFAULT_UNITS } from '../models/HealthRecord.js';
+import { HealthRecord, DEFAULT_UNITS, HEALTH_METRIC_TYPES } from '../models/HealthRecord.js';
+import { evaluateMedicalThreshold } from '../utils/healthThresholds.js';
 import { User } from '../models/User.js';
 import mongoose from 'mongoose';
 
@@ -341,6 +342,154 @@ export const getFamilyMemberHealthRecords = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Lỗi server khi lấy dữ liệu sức khỏe thành viên',
+      error: error.message,
+    });
+  }
+};
+
+
+/**
+ * @desc    Lấy tổng quan sức khỏe mới nhất của một thành viên trong nhóm gia đình (Jira SCRUM-50)
+ *          Kiểm soát chặt chẽ bởi SharingPolicy (AC1 & AC2 SCRUM-49 / SCRUM-45):
+ *          - Áp dụng bộ lọc allowedMetrics từ middleware healthAccessControl
+ *          - Tích hợp đánh giá ngưỡng y khoa (SCRUM-52)
+ * @route   GET /api/families/:familyId/members/:memberId/health-overview
+ * @access  Private (bảo vệ bởi protect & healthAccessControl)
+ */
+export const getFamilyMemberHealthOverview = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const allowedMetrics = req.allowedMetrics || [];
+    const isSelfView = req.isSelfView || false;
+
+    // 1. Lấy thông tin thành viên mục tiêu
+    const targetUser = await User.findById(memberId).select('name fullName email avatar avatarUrl birthDate gender heightCm');
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thông tin thành viên',
+      });
+    }
+
+    const family = req.family;
+    const memberRecord = family.members.find(
+      (m) =>
+        m.userId?.toString() === memberId.toString() ||
+        m.userId?._id?.toString() === memberId.toString()
+    );
+
+    const memberInfo = {
+      id: targetUser._id,
+      name: targetUser.fullName || targetUser.name || targetUser.email,
+      fullName: targetUser.fullName || targetUser.name,
+      email: targetUser.email,
+      avatar: targetUser.avatar || targetUser.avatarUrl,
+      avatarUrl: targetUser.avatarUrl || targetUser.avatar,
+      gender: targetUser.gender || 'UNKNOWN',
+      heightCm: targetUser.heightCm || 170,
+      birthDate: targetUser.birthDate,
+      role: memberRecord?.role || 'MEMBER',
+      joinedAt: memberRecord?.joinedAt || new Date(),
+    };
+
+    const metrics = {};
+    const recentHistory = {};
+    let warningCount = 0;
+    let dangerCount = 0;
+
+    // 2. Duyệt qua toàn bộ 4 loại chỉ số sức khỏe chuẩn
+    for (const type of HEALTH_METRIC_TYPES) {
+      const hasAccess = allowedMetrics.includes(type);
+
+      if (!hasAccess) {
+        metrics[type] = {
+          type,
+          hasAccess: false,
+          latest: null,
+          evaluation: {
+            level: 'PROTECTED',
+            label: 'Không có quyền xem',
+            color: 'slate',
+            description: 'Chỉ số này được bảo vệ bởi chính sách quyền riêng tư (Default Deny)',
+            badgeText: 'Chưa cấp quyền',
+          },
+        };
+        recentHistory[type] = [];
+        continue;
+      }
+
+      // Query bản ghi mới nhất
+      const latestDoc = await HealthRecord.findOne({
+        userId: memberId,
+        type,
+      }).sort({ recordedAt: -1 });
+
+      let latest = null;
+      if (latestDoc) {
+        latest = latestDoc.toObject();
+        latest.values = {
+          systolic: latest.systolic,
+          diastolic: latest.diastolic,
+          value: latest.value,
+          bmi: latest.bmi,
+        };
+      }
+
+      // Query lịch sử đo 30 ngày gần nhất để vẽ biểu đồ mini
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const historyDocs = await HealthRecord.find({
+        userId: memberId,
+        type,
+        recordedAt: { $gte: thirtyDaysAgo },
+      }).sort({ recordedAt: 1 });
+
+      const history = historyDocs.map((doc) => {
+        const item = doc.toObject();
+        item.values = {
+          systolic: item.systolic,
+          diastolic: item.diastolic,
+          value: item.value,
+          bmi: item.bmi,
+        };
+        return item;
+      });
+
+      const evaluation = latest ? evaluateMedicalThreshold(type, latest) : null;
+      if (evaluation) {
+        if (evaluation.level === 'DANGER') dangerCount++;
+        else if (evaluation.level === 'WARNING') warningCount++;
+      }
+
+      metrics[type] = {
+        type,
+        hasAccess: true,
+        latest,
+        evaluation,
+      };
+      recentHistory[type] = history;
+    }
+
+    const overallStatus = dangerCount > 0 ? 'DANGER' : warningCount > 0 ? 'WARNING' : 'NORMAL';
+
+    return res.status(200).json({
+      success: true,
+      member: memberInfo,
+      allowedMetrics,
+      isSelfView,
+      overallStatus,
+      alerts: {
+        dangerCount,
+        warningCount,
+      },
+      metrics,
+      recentHistory,
+    });
+  } catch (error) {
+    console.error('Lỗi khi lấy tổng quan sức khỏe thành viên:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy tổng quan sức khỏe thành viên',
       error: error.message,
     });
   }

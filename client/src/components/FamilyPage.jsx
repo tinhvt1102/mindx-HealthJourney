@@ -17,10 +17,12 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
-  Info
+  Info,
+  Activity
 } from 'lucide-react';
 import { familyService, invitationService } from '../services/api';
 import InvitationModal from './InvitationModal';
+import MemberHealthDashboard from './MemberHealthDashboard';
 
 export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy }) {
   // Danh sách các nhóm gia đình của user
@@ -29,6 +31,7 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
   const [currentFamily, setCurrentFamily] = useState(null);
   const [loading, setLoading] = useState(true);
   const [familyLoading, setFamilyLoading] = useState(false);
+  const [selectedMemberForDashboard, setSelectedMemberForDashboard] = useState(null);
 
   // Trạng thái form tạo nhóm gia đình
   const [isCreatingFamily, setIsCreatingFamily] = useState(false);
@@ -246,6 +249,24 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
     setReviewToken(manualToken.trim());
     setIsReviewModalOpen(true);
   };
+
+  // Xem tổng quan sức khỏe thành viên theo phân quyền (Jira SCRUM-49 / SCRUM-51)
+  if (selectedMemberForDashboard) {
+    const memberUser = selectedMemberForDashboard.userId || selectedMemberForDashboard;
+    const memberId = memberUser._id || memberUser.id || selectedMemberForDashboard._id;
+    const memberName = memberUser.name || memberUser.fullName || memberUser.email || 'Thành viên';
+
+    return (
+      <MemberHealthDashboard
+        familyId={selectedFamilyId}
+        memberId={memberId}
+        memberName={memberName}
+        currentUser={currentUser}
+        onBack={() => setSelectedMemberForDashboard(null)}
+        onOpenPrivacy={onNavigateToPrivacy}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -560,6 +581,15 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedMemberForDashboard(member)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer shadow-2xs"
+                                title="Xem tổng quan sức khỏe theo phân quyền"
+                              >
+                                <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Xem sức khỏe</span>
+                              </button>
                               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                                 isMemberAdmin 
                                   ? 'bg-teal-50 text-teal-700 border border-teal-200' 
