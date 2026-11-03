@@ -5,6 +5,7 @@ import FamilyPage from './components/FamilyPage';
 import PrivacyMatrixPage from './components/PrivacyMatrixPage';
 import InvitationBanner from './components/InvitationBanner';
 import InvitationModal from './components/InvitationModal';
+import AISummaryCard from './components/AISummaryCard';
 import { 
   Heart, 
   LogOut, 
@@ -280,6 +281,12 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* AI Summary Card: Tóm tắt xu hướng sức khỏe bản thân (SCRUM-58) */}
+            <AISummaryCard 
+              targetUserId={currentUser._id} 
+              autoFetch={false}
+            />
 
             {/* Thông tin tóm tắt chỉ số thể chất hiện tại */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

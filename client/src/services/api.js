@@ -136,4 +136,20 @@ export const policyService = {
   },
 };
 
+export const aiService = {
+  /**
+   * Tóm tắt xu hướng sức khỏe bằng Gemini AI (SCRUM-55/57/58)
+   * @param {string} [targetUserId] - ID người dùng cần phân tích (để trống nếu tóm tắt cho chính mình)
+   * @param {string} [familyId] - ID nhóm gia đình (bắt buộc khi xem người thân)
+   * @returns {Promise<{ success: boolean, fromCache: boolean, cacheDate: string, isFallback: boolean, recordCount: number, allowedMetrics: string[], isSelfView: boolean, summary: string }>}
+   */
+  summarizeTrends: async (targetUserId, familyId) => {
+    const payload = {};
+    if (targetUserId) payload.targetUserId = targetUserId;
+    if (familyId) payload.familyId = familyId;
+    const res = await api.post('/ai/summarize-trends', payload);
+    return res.data;
+  },
+};
+
 export default api;
