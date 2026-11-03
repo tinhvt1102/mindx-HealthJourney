@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import { protect } from '../middlewares/auth.middleware.js';
 import { validateInviteMember } from '../middlewares/invitationValidation.middleware.js';
 import { inviteMember } from '../controllers/invitation.controller.js';
@@ -6,6 +6,9 @@ import {
   createFamily,
   getFamilyById,
   getMyFamilies,
+  updateFamily,
+  deleteFamily,
+  removeMember,
 } from '../controllers/family.controller.js';
 import {
   getFamilySharingPolicies,
@@ -13,7 +16,7 @@ import {
 } from '../controllers/policy.controller.js';
 import { validateUpdatePolicy } from '../middlewares/policyValidation.middleware.js';
 import { healthAccessControl } from '../middlewares/healthAccessControl.js';
-import { getFamilyMemberHealthRecords } from '../controllers/healthRecord.controller.js';
+import { getFamilyMemberHealthRecords, getFamilyMemberHealthOverview } from '../controllers/healthRecord.controller.js';
 
 const router = express.Router();
 
@@ -25,7 +28,12 @@ router.route('/')
   .get(getMyFamilies);
 
 router.route('/:id')
-  .get(getFamilyById);
+  .get(getFamilyById)
+  .put(updateFamily)
+  .delete(deleteFamily);
+
+// Xóa thành viên hoặc thành viên tự rời nhóm (SCRUM-34)
+router.delete('/:id/members/:memberId', removeMember);
 
 // Endpoint gửi lời mời theo ticket SCRUM-38
 router.post('/:id/invite', validateInviteMember, inviteMember);
@@ -40,6 +48,14 @@ router.get(
   '/:familyId/members/:memberId/health-records',
   healthAccessControl,
   getFamilyMemberHealthRecords
+);
+
+
+// Endpoint lấy tổng quan chỉ số sức khỏe của thành viên có kiểm soát quyền SharingPolicy & Đánh giá ngưỡng y khoa (Jira SCRUM-50 / SCRUM-52)
+router.get(
+  '/:familyId/members/:memberId/health-overview',
+  healthAccessControl,
+  getFamilyMemberHealthOverview
 );
 
 export default router;

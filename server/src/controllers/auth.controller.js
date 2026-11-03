@@ -1,23 +1,23 @@
-import jwt from 'jsonwebtoken';
+﻿import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
+import { sendOtpEmail } from '../services/email.service.js';
 
-// Helper sinh JWT token
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };
 
-// @desc    Đăng ký tài khoản mới (Chuẩn SCRUM-17: email, passwordHash, name, avatar, bio)
-// @route   POST /api/v1/auth/register
-// @access  Public
+const generateOtp = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 export const register = async (req, res) => {
   try {
-    const { email, password, fullName, name, avatar, bio, heightCm } = req.body;
+    const { email, password, fullName, name } = req.body;
     const displayName = (name || fullName || '').trim();
 
-    // Validate đầu vào cơ bản
     if (!email || !password || !displayName) {
       return res.status(400).json({
         success: false,
@@ -32,7 +32,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Kiểm tra email đã tồn tại chưa
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({
@@ -41,40 +40,31 @@ export const register = async (req, res) => {
       });
     }
 
-    // Băm mật khẩu lưu vào trường passwordHash theo đúng Jira
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Tạo user mới
+    const otpCode = generateOtp();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
     const newUser = await User.create({
       email: email.toLowerCase(),
       passwordHash,
       name: displayName,
       fullName: displayName,
-      avatar: avatar || '',
-      avatarUrl: avatar || '',
-      bio: bio || '',
-      heightCm: heightCm || 170,
+      isVerified: false,
+      otp: {
+        code: otpCode,
+        expiresAt: otpExpires,
+      },
     });
 
-    const token = signToken(newUser._id);
+    await sendOtpEmail(newUser.email, otpCode);
 
     return res.status(201).json({
       success: true,
-      message: 'Đăng ký tài khoản thành công',
-      token,
-      user: {
-        id: newUser._id,
-        email: newUser.email,
-        name: newUser.name,
-        fullName: newUser.name,
-        avatar: newUser.avatar,
-        avatarUrl: newUser.avatar,
-        bio: newUser.bio,
-        heightCm: newUser.heightCm,
-        birthDate: newUser.birthDate,
-        gender: newUser.gender,
-      },
+      requireOtp: true,
+      message: 'Đăng ký thành công! Vui lòng nhập mã OTP gửi tới email của bạn.',
+      email: newUser.email,
     });
   } catch (error) {
     console.error('[Register Error]:', error);
@@ -86,9 +76,118 @@ export const register = async (req, res) => {
   }
 };
 
-// @desc    Đăng nhập
-// @route   POST /api/v1/auth/login
-// @access  Public
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp Email và Mã OTP',
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+otp.code +otp.expiresAt');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản với email này',
+      });
+    }
+
+    if (!user.otp || !user.otp.code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không có yêu cầu OTP nào đang chờ xử lý. Vui lòng gửi lại mã!',
+      });
+    }
+
+    if (user.otp.code !== otp.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã OTP không chính xác. Vui lòng kiểm tra lại!',
+      });
+    }
+
+    if (new Date() > new Date(user.otp.expiresAt)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã OTP đã hết hạn (10 phút). Vui lòng yêu cầu gửi lại mã mới!',
+      });
+    }
+
+    user.isVerified = true;
+    user.otp = undefined;
+    await user.save();
+
+    const token = signToken(user._id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Xác thực OTP thành công! Chào mừng bạn đến với HealthJourney.',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name || user.fullName,
+        fullName: user.fullName || user.name,
+        avatar: user.avatar || user.avatarUrl,
+        avatarUrl: user.avatarUrl || user.avatar,
+        bio: user.bio,
+        heightCm: user.heightCm,
+        weightKg: user.weightKg,
+        birthDate: user.birthDate,
+        gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
+        isVerified: true,
+      },
+    });
+  } catch (error) {
+    console.error('[Verify OTP Error]:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi xác thực OTP',
+      error: error.message,
+    });
+  }
+};
+
+export const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp Email' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' });
+    }
+
+    const otpCode = generateOtp();
+    user.otp = {
+      code: otpCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    };
+    await user.save();
+
+    await sendOtpEmail(user.email, otpCode);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đã gửi lại mã OTP mới qua email của bạn.',
+    });
+  } catch (error) {
+    console.error('[Resend OTP Error]:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi gửi lại mã OTP',
+      error: error.message,
+    });
+  }
+};
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -100,7 +199,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Lấy kèm trường passwordHash hoặc password cũ để so khớp
     const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash +password');
     if (!user) {
       return res.status(401).json({
@@ -109,7 +207,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // So khớp mật khẩu
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -133,8 +230,12 @@ export const login = async (req, res) => {
         avatarUrl: user.avatar || user.avatarUrl,
         bio: user.bio,
         heightCm: user.heightCm,
+        weightKg: user.weightKg,
         birthDate: user.birthDate,
         gender: user.gender,
+        bloodType: user.bloodType,
+        bmi: user.bmi,
+        isVerified: user.isVerified,
       },
     });
   } catch (error) {
@@ -147,9 +248,6 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Lấy thông tin tài khoản đang đăng nhập
-// @route   GET /api/v1/auth/me
-// @access  Private (Cần Bearer Token)
 export const getMe = async (req, res) => {
   return res.status(200).json({
     success: true,
@@ -167,21 +265,18 @@ export const getMe = async (req, res) => {
       gender: req.user.gender,
       bloodType: req.user.bloodType,
       bmi: req.user.bmi,
+      isVerified: req.user.isVerified,
       createdAt: req.user.createdAt,
       updatedAt: req.user.updatedAt,
     },
   });
 };
 
-// @desc    Cập nhật thông tin cá nhân (chiều cao, cân nặng, ngày sinh, giới tính...)
-// @route   PUT /api/v1/auth/profile
-// @access  Private (Cần Bearer Token)
 export const updateProfile = async (req, res) => {
   try {
-    const { heightCm, weightKg, birthDate, gender, bloodType, fullName, name, avatarUrl, bio } = req.body;
+    const { heightCm, weightKg, birthDate, gender, bloodType, fullName, name, bio, avatar, avatarUrl } = req.body;
     const user = req.user;
 
-    // Validate và cập nhật Chiều cao
     if (heightCm !== undefined && heightCm !== null && heightCm !== '') {
       const height = Number(heightCm);
       if (isNaN(height) || height < 50 || height > 250) {
@@ -193,7 +288,6 @@ export const updateProfile = async (req, res) => {
       user.heightCm = height;
     }
 
-    // Validate và cập nhật Cân nặng
     if (weightKg !== undefined && weightKg !== null && weightKg !== '') {
       const weight = Number(weightKg);
       if (isNaN(weight) || weight < 10 || weight > 300) {
@@ -205,7 +299,6 @@ export const updateProfile = async (req, res) => {
       user.weightKg = weight;
     }
 
-    // Validate và cập nhật Ngày sinh
     if (birthDate !== undefined && birthDate !== null && birthDate !== '') {
       const parsedDate = new Date(birthDate);
       if (isNaN(parsedDate.getTime())) {
@@ -225,19 +318,18 @@ export const updateProfile = async (req, res) => {
       user.birthDate = undefined;
     }
 
-    // Validate và cập nhật Giới tính
     if (gender !== undefined && gender !== null && gender !== '') {
+      const normalizedGender = gender.toString().toUpperCase();
       const validGenders = ['MALE', 'FEMALE', 'OTHER'];
-      if (!validGenders.includes(gender)) {
+      if (!validGenders.includes(normalizedGender)) {
         return res.status(400).json({
           success: false,
           message: 'Giới tính không hợp lệ (chỉ chấp nhận MALE, FEMALE hoặc OTHER)',
         });
       }
-      user.gender = gender;
+      user.gender = normalizedGender;
     }
 
-    // Validate và cập nhật Nhóm máu
     if (bloodType !== undefined && bloodType !== null && bloodType !== '') {
       const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'];
       if (!validBloodTypes.includes(bloodType)) {
@@ -249,22 +341,20 @@ export const updateProfile = async (req, res) => {
       user.bloodType = bloodType;
     }
 
-    // Cập nhật Họ và tên nếu có
-    const resolvedName = fullName !== undefined ? fullName : name;
+    const resolvedName = (fullName !== undefined ? fullName : name);
     if (resolvedName !== undefined && typeof resolvedName === 'string' && resolvedName.trim()) {
       user.fullName = resolvedName.trim();
       user.name = resolvedName.trim();
     }
 
-    // Cập nhật Ảnh đại diện nếu có
-    if (avatarUrl !== undefined && typeof avatarUrl === 'string') {
-      user.avatarUrl = avatarUrl.trim();
-      user.avatar = avatarUrl.trim();
-    }
-
-    // Cập nhật Bio nếu có
     if (bio !== undefined && typeof bio === 'string') {
       user.bio = bio.trim();
+    }
+
+    const newAvatar = avatarUrl || avatar;
+    if (newAvatar !== undefined && typeof newAvatar === 'string') {
+      user.avatarUrl = newAvatar.trim();
+      user.avatar = newAvatar.trim();
     }
 
     await user.save();
@@ -277,6 +367,7 @@ export const updateProfile = async (req, res) => {
         email: user.email,
         name: user.name || user.fullName,
         fullName: user.fullName || user.name,
+        avatar: user.avatar || user.avatarUrl,
         avatarUrl: user.avatarUrl || user.avatar,
         bio: user.bio,
         heightCm: user.heightCm,
@@ -285,6 +376,7 @@ export const updateProfile = async (req, res) => {
         gender: user.gender,
         bloodType: user.bloodType,
         bmi: user.bmi,
+        isVerified: user.isVerified,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

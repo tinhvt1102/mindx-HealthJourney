@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -130,7 +130,7 @@ export default function InvitationBanner({ currentUser, onFamilyUpdated }) {
               </h4>
               <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Hiệu lực trong vòng 48 giờ kể từ lúc tạo</span>
+                <span>Lời mời có hiệu lực trong 48 giờ</span>
               </p>
             </div>
           </div>

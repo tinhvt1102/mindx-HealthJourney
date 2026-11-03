@@ -1,8 +1,6 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-// Schema chuẩn 100% theo ticket Jira SCRUM-17:
-// (email, passwordHash, name, avatar, bio, timestamps) kèm index unique email
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -13,23 +11,19 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Email không hợp lệ'],
     },
-    // Lưu mật khẩu băm với tên trường passwordHash theo Jira
     passwordHash: {
       type: String,
-      select: false, // Ẩn khi query thông thường
+      select: false,
     },
-    // Trường password dự phòng cho các tài khoản cũ đã tạo
     password: {
       type: String,
       select: false,
     },
-    // Tên người dùng theo Jira (name)
     name: {
       type: String,
       trim: true,
       maxlength: [60, 'Tên tối đa 60 ký tự'],
     },
-    // Dự phòng fullName nếu user cũ có
     fullName: {
       type: String,
       trim: true,
@@ -64,6 +58,7 @@ const userSchema = new mongoose.Schema(
     gender: {
       type: String,
       enum: ['MALE', 'FEMALE', 'OTHER'],
+      uppercase: true,
       default: 'OTHER',
     },
     bloodType: {
@@ -71,15 +66,22 @@ const userSchema = new mongoose.Schema(
       enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'],
       default: 'UNKNOWN',
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      code: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+    },
   },
   {
-    timestamps: true, // Tự động tạo createdAt và updatedAt
+    timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
 );
 
-// Virtual tính chỉ số thể trạng BMI tự động từ heightCm và weightKg
 userSchema.virtual('bmi').get(function () {
   if (this.heightCm && this.weightKg) {
     const heightInMeters = this.heightCm / 100;
@@ -88,8 +90,8 @@ userSchema.virtual('bmi').get(function () {
   return null;
 });
 
+userSchema.index({ email: 1 }, { unique: true });
 
-// So khớp mật khẩu đăng nhập (hỗ trợ cả passwordHash và password cũ)
 userSchema.methods.comparePassword = async function (candidatePassword) {
   const hash = this.passwordHash || this.password;
   if (!hash) return false;
