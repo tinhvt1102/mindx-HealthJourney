@@ -7,6 +7,7 @@ import HealthTrackerPage from './components/HealthTrackerPage';
 import HealthRecordModal from './components/HealthRecordModal';
 import InvitationBanner from './components/InvitationBanner';
 import InvitationModal from './components/InvitationModal';
+import AiSummaryCard from './components/AiSummaryCard';
 import { 
   Heart, 
   LogOut, 
@@ -341,6 +342,14 @@ export default function App() {
               </div>
             </div>
 
+            {/* AI Summary Card: Tóm tắt xu hướng sức khỏe bản thân (SCRUM-54 / SCRUM-58) */}
+            <AiSummaryCard 
+              memberId={currentUser._id} 
+              isSelfView={true}
+              memberName={currentUser.name || currentUser.fullName || 'bạn'}
+            />
+
+            {/* Thông tin tóm tắt chỉ số thể chất hiện tại */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wider block">Chiều cao hiện tại</span>

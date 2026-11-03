@@ -4,7 +4,12 @@ import { summarizeTrends } from '../controllers/ai.controller.js';
 
 const router = express.Router();
 
-// [AI / BE] Tóm tắt xu hướng sức khỏe định kỳ bằng AI / Fallback engine (Jira SCRUM-54 / E6-S1)
+/**
+ * @route   POST /api/ai/summarize-trends
+ * @desc    Tóm tắt xu hướng sức khỏe bằng Gemini AI (Jira SCRUM-54/55/56/57)
+ * @access  Private (yêu cầu Bearer token)
+ * @body    { targetUserId?: string, memberId?: string, familyId?: string, forceRefresh?: boolean }
+ */
 router.post('/summarize-trends', protect, summarizeTrends);
 
 export default router;

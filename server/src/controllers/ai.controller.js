@@ -1,126 +1,188 @@
 import mongoose from 'mongoose';
-import { HealthRecord } from '../models/HealthRecord.js';
-import { User } from '../models/User.js';
+import { HealthRecord, HEALTH_METRIC_TYPES } from '../models/HealthRecord.js';
 import { Family } from '../models/Family.js';
 import { SharingPolicy } from '../models/SharingPolicy.js';
-import { AiTrendSummary } from '../models/AiTrendSummary.js';
-import { generateAiSummaryWithGemini, MANDATORY_DISCLAIMER } from '../services/ai.service.js';
+import { AISummaryCache } from '../models/AISummaryCache.js';
+import { User } from '../models/User.js';
+import { generateHealthSummary, computeMetricsHash, MANDATORY_DISCLAIMER } from '../services/ai.service.js';
 
+/**
+ * Lấy ngày hôm nay theo UTC, định dạng YYYY-MM-DD
+ * @returns {string}
+ */
+const getTodayUTC = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * @desc    Tóm tắt xu hướng sức khỏe sử dụng Gemini AI (SCRUM-54/55/56/57)
+ * @route   POST /api/ai/summarize-trends
+ * @access  Private (yêu cầu đăng nhập)
+ *
+ * Body: { targetUserId?: string, memberId?: string, familyId?: string, forceRefresh?: boolean }
+ */
 export const summarizeTrends = async (req, res) => {
   try {
-    const requesterId = req.user.id || req.user._id;
-    const { memberId, familyId, forceRefresh } = req.body;
+    const requesterId = (req.user._id || req.user.id).toString();
+    const { targetUserId: rawTargetId, memberId: rawMemberId, familyId: rawFamilyId, forceRefresh } = req.body;
 
-    const targetUserId = memberId && mongoose.Types.ObjectId.isValid(memberId) ? memberId : requesterId;
-    const isSelfView = targetUserId.toString() === requesterId.toString();
+    // 1. Xác định targetUserId (mặc định là chính req.user)
+    const targetUserId = (rawTargetId || rawMemberId || requesterId).toString();
+    const isSelfView = targetUserId === requesterId;
 
-    const targetUser = await User.findById(targetUserId).select('name fullName');
-    if (!targetUser) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'targetUserId không hợp lệ',
+      });
     }
 
-    let allowedMetrics = null; // null nghĩa là được xem toàn bộ (khi xem chính mình)
+    const targetUser = await User.findById(targetUserId).select('name fullName email heightCm');
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng',
+      });
+    }
+
+    // 2. Kiểm tra quyền truy cập dữ liệu người thân (SCRUM-49 / SCRUM-54 / Default Deny)
+    let allowedMetrics = HEALTH_METRIC_TYPES;
 
     if (!isSelfView) {
-      if (!familyId || !mongoose.Types.ObjectId.isValid(familyId)) {
-        return res.status(400).json({ success: false, message: 'Cần cung cấp familyId khi xem dữ liệu người thân' });
-      }
-
-      // Kiểm tra cả hai người có thuộc gia đình không
-      const family = await Family.findById(familyId);
-      if (!family) {
-        return res.status(404).json({ success: false, message: 'Không tìm thấy nhóm gia đình' });
-      }
-
-      const isRequesterInFamily = family.members.some(m => m.userId.toString() === requesterId.toString());
-      const isMemberInFamily = family.members.some(m => m.userId.toString() === targetUserId.toString());
-      if (!isRequesterInFamily || !isMemberInFamily) {
-        return res.status(403).json({ success: false, message: 'Bạn hoặc người thân không thuộc nhóm gia đình này' });
-      }
-
-      // Kiểm tra SharingPolicy (Default Deny - Jira SCRUM-49 / SCRUM-54)
-      const policy = await SharingPolicy.findOne({
-        ownerId: targetUserId,
-        viewerId: requesterId,
-        familyId,
-      });
-
-      if (!policy || !policy.allowedMetrics || policy.allowedMetrics.length === 0) {
-        return res.status(403).json({
+      if (!rawFamilyId || !mongoose.Types.ObjectId.isValid(rawFamilyId)) {
+        return res.status(400).json({
           success: false,
-          code: 'ACCESS_DENIED',
-          message: 'Chính sách bảo vệ quyền riêng tư (Default Deny): Thành viên này chưa cấp quyền xem bất kỳ chỉ số nào cho bạn.',
+          message: 'Vui lòng cung cấp familyId hợp lệ khi yêu cầu phân tích dữ liệu người thân',
         });
       }
 
-      allowedMetrics = policy.allowedMetrics;
+      const familyId = rawFamilyId.toString();
+      const family = await Family.findById(familyId);
+      if (!family) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy nhóm gia đình',
+        });
+      }
+
+      const isCallerMember = family.members.some(
+        (m) => m.userId?.toString() === requesterId || m.userId?._id?.toString() === requesterId
+      );
+      if (!isCallerMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bạn không phải là thành viên của nhóm gia đình này',
+        });
+      }
+
+      const isTargetMember = family.members.some(
+        (m) => m.userId?.toString() === targetUserId || m.userId?._id?.toString() === targetUserId
+      );
+      if (!isTargetMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'Thành viên mục tiêu không thuộc nhóm gia đình này',
+        });
+      }
+
+      // Tra cứu SharingPolicy (Default Deny: Admin cũng không bypass nếu chưa cấp)
+      const policy = await SharingPolicy.findOne({
+        ownerId: targetUserId,
+        viewerId: requesterId,
+        familyId: familyId,
+      });
+
+      allowedMetrics = policy && Array.isArray(policy.allowedMetrics) && policy.allowedMetrics.length > 0
+        ? policy.allowedMetrics
+        : [];
+
+      if (allowedMetrics.length === 0) {
+        return res.status(403).json({
+          success: false,
+          code: 'ACCESS_DENIED',
+          message: 'Chính sách bảo vệ quyền riêng tư (Default Deny): Bạn chưa được cấp quyền xem bất kỳ chỉ số sức khỏe nào của thành viên này để có thể phân tích xu hướng',
+        });
+      }
     }
 
-    // Truy vấn dữ liệu chỉ lấy các metric được phép xem
-    const recordQuery = { userId: targetUserId };
-    if (allowedMetrics) {
-      recordQuery.type = { $in: allowedMetrics };
-    }
+    // 3. Lấy dữ liệu sức khỏe (lọc theo allowedMetrics)
+    const records = await HealthRecord.find({
+      userId: targetUserId,
+      type: { $in: allowedMetrics },
+    }).sort({ recordedAt: 1 });
 
-    const records = await HealthRecord.find(recordQuery).sort({ recordedAt: 1 });
-
-    // AC4 SCRUM-54: Cần tối thiểu 3 bản ghi dữ liệu mới cho phép tóm tắt
+    // AC4: Tối thiểu 3 bản ghi
     if (records.length < 3) {
       return res.status(400).json({
         success: false,
         code: 'INSUFFICIENT_DATA',
+        message: `Cần tối thiểu 3 bản ghi chỉ số sức khỏe để AI có thể phân tích xu hướng (Hiện tại có ${records.length} bản ghi).`,
         recordCount: records.length,
+        currentCount: records.length,
         minRequired: 3,
-        message: `Cần tối thiểu 3 bản ghi dữ liệu đo lường để AI có thể phân tích xu hướng sức khỏe (Hiện tại có ${records.length} bản ghi).`,
       });
     }
 
-    // AC SCRUM-54 Sub-task 44: Cache kết quả theo ngày tránh spam quota
-    const today = new Date().toISOString().split('T')[0];
-    if (!forceRefresh) {
-      const cached = await AiTrendSummary.findOne({
-        memberId: targetUserId,
-        userId: requesterId,
-        dateKey: today,
-      }).sort({ createdAt: -1 });
+    // 4. Kiểm tra cache trong DB (cache theo ngày UTC - SCRUM-57)
+    const cacheDate = getTodayUTC();
+    const metricsHash = computeMetricsHash(allowedMetrics);
 
-      if (cached && cached.recordCount === records.length) {
+    if (!forceRefresh) {
+      const existingCache = await AISummaryCache.findOne({
+        targetUserId: new mongoose.Types.ObjectId(targetUserId),
+        requesterId: new mongoose.Types.ObjectId(requesterId),
+        cacheDate,
+      });
+
+      if (existingCache && existingCache.metricsHash === metricsHash) {
         return res.status(200).json({
           success: true,
-          summary: cached.summaryMarkdown,
-          disclaimer: cached.disclaimer || MANDATORY_DISCLAIMER,
-          recordCount: cached.recordCount,
           fromCache: true,
-          generatedAt: cached.createdAt,
+          cacheDate: existingCache.cacheDate,
+          isFallback: existingCache.isFallback,
+          recordCount: existingCache.recordCount,
+          allowedMetrics,
+          isSelfView,
+          summary: existingCache.summary,
+          disclaimer: MANDATORY_DISCLAIMER,
         });
       }
     }
 
-    // Sinh nội dung qua Gemini API hoặc Rule-based fallback
-    const memberName = targetUser.fullName || targetUser.name || (isSelfView ? 'bạn' : 'thành viên');
-    const summaryMarkdown = await generateAiSummaryWithGemini(records, memberName);
+    // 5. Gọi AI Service tạo tóm tắt xu hướng (Gemini API + Fallback)
+    const aiResult = await generateHealthSummary(records, targetUser, isSelfView);
 
-    // Lưu cache mới
-    const savedCache = await AiTrendSummary.create({
-      userId: requesterId,
-      memberId: targetUserId,
-      familyId: familyId || null,
-      recordCount: records.length,
-      summaryMarkdown,
-      disclaimer: MANDATORY_DISCLAIMER,
-      dateKey: today,
-    });
+    // 6. Lưu / Cập nhật cache
+    await AISummaryCache.findOneAndUpdate(
+      {
+        targetUserId: new mongoose.Types.ObjectId(targetUserId),
+        requesterId: new mongoose.Types.ObjectId(requesterId),
+        cacheDate,
+      },
+      {
+        targetUserId: new mongoose.Types.ObjectId(targetUserId),
+        requesterId: new mongoose.Types.ObjectId(requesterId),
+        familyId: rawFamilyId && mongoose.Types.ObjectId.isValid(rawFamilyId) ? new mongoose.Types.ObjectId(rawFamilyId) : null,
+        cacheDate,
+        metricsHash,
+        summary: aiResult.summary,
+        recordCount: records.length,
+        isFallback: aiResult.isFallback,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
     return res.status(200).json({
       success: true,
-      summary: summaryMarkdown,
-      disclaimer: MANDATORY_DISCLAIMER,
-      recordCount: records.length,
       fromCache: false,
-      generatedAt: savedCache.createdAt,
+      cacheDate,
+      isFallback: aiResult.isFallback,
+      recordCount: records.length,
+      allowedMetrics,
+      isSelfView,
+      summary: aiResult.summary,
+      disclaimer: MANDATORY_DISCLAIMER,
     });
   } catch (error) {
-    console.error('Lỗi khi tóm tắt xu hướng AI:', error);
+    console.error('[AI Controller] Lỗi khi tóm tắt xu hướng AI:', error);
     return res.status(500).json({
       success: false,
       message: 'Lỗi server khi phân tích xu hướng sức khỏe bằng AI',

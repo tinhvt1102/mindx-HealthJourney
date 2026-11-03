@@ -37,6 +37,7 @@ app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/v1/ai', aiRoutes);
 
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,

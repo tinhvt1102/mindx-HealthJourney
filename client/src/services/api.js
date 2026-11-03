@@ -159,8 +159,24 @@ export const policyService = {
 };
 
 export const aiService = {
-  summarizeTrends: async (params = {}) => {
-    const res = await api.post('/ai/summarize-trends', params);
+  /**
+   * Tóm tắt xu hướng sức khỏe bằng Gemini AI (SCRUM-54 / SCRUM-58)
+   * Hỗ trợ cả 2 signature: (targetUserId, familyId) hoặc ({ memberId, familyId, forceRefresh })
+   */
+  summarizeTrends: async (targetUserIdOrParams = {}, familyId) => {
+    let payload = {};
+    if (typeof targetUserIdOrParams === 'object' && targetUserIdOrParams !== null) {
+      payload = { ...targetUserIdOrParams };
+      if (payload.memberId && !payload.targetUserId) payload.targetUserId = payload.memberId;
+      if (payload.targetUserId && !payload.memberId) payload.memberId = payload.targetUserId;
+    } else {
+      if (targetUserIdOrParams) {
+        payload.targetUserId = targetUserIdOrParams;
+        payload.memberId = targetUserIdOrParams;
+      }
+      if (familyId) payload.familyId = familyId;
+    }
+    const res = await api.post('/ai/summarize-trends', payload);
     return res.data;
   },
 };
