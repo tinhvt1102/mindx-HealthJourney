@@ -157,6 +157,8 @@ export default function ExportPdfButton({
             opacity: 1,
             pointerEvents: 'none',
             zIndex: -9999,
+            backgroundColor: '#ffffff',
+            color: '#1e293b',
           }}
         >
           <MedicalReportTemplate

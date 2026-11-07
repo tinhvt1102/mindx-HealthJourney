@@ -3,6 +3,8 @@ import { jsPDF } from 'jspdf';
 
 /**
  * Xuất phần tử DOM của Báo cáo y tế sang file PDF chuẩn khổ A4 (210mm x 297mm)
+ * Xử lý tương thích 100% với Tailwind CSS v4 (triệt tiêu lỗi oklch color parser của html2canvas)
+ *
  * @param {HTMLElement|string} elementOrId - Phần tử DOM hoặc ID của phần tử
  * @param {string} [fileName] - Tên file xuất ra
  * @returns {Promise<boolean>}
@@ -24,6 +26,54 @@ export async function exportMedicalReportToPdf(elementOrId, fileName) {
     backgroundColor: '#ffffff',
     windowWidth: element.scrollWidth,
     windowHeight: element.scrollHeight,
+    onclone: (clonedDoc, clonedElement) => {
+      // 1. Xóa adoptedStyleSheets nếu có (Tailwind v4 inject constructable stylesheets chứa oklch)
+      try {
+        if (clonedDoc.adoptedStyleSheets && clonedDoc.adoptedStyleSheets.length > 0) {
+          clonedDoc.adoptedStyleSheets = [];
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Khử triệt để lỗi "unsupported color function oklch" của Tailwind v4:
+      // Quét tất cả thẻ <style> và thay thế mọi hàm oklch(...) thành mã màu HEX an toàn
+      const styleElements = clonedDoc.querySelectorAll('style');
+      styleElements.forEach((styleTag) => {
+        if (styleTag.textContent && styleTag.textContent.includes('oklch')) {
+          styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/gi, '#64748b');
+        }
+      });
+
+      // 3. Gỡ bỏ các thẻ link stylesheet ngoài nếu có
+      const linkElements = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
+      linkElements.forEach((linkTag) => {
+        try {
+          linkTag.remove();
+        } catch {
+          // ignore
+        }
+      });
+
+      // 4. Ép style chuẩn (hex) cho toàn bộ các phần tử trong template
+      if (clonedElement) {
+        clonedElement.style.color = '#1e293b';
+        clonedElement.style.backgroundColor = '#ffffff';
+
+        const allNodes = clonedElement.querySelectorAll('*');
+        allNodes.forEach((node) => {
+          if (node.style) {
+            for (let i = 0; i < node.style.length; i++) {
+              const prop = node.style[i];
+              const val = node.style.getPropertyValue(prop);
+              if (val && val.includes('oklch')) {
+                node.style.setProperty(prop, '#64748b');
+              }
+            }
+          }
+        });
+      }
+    },
   });
 
   const imgData = canvas.toDataURL('image/png');
