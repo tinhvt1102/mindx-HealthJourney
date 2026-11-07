@@ -2,6 +2,8 @@ import { HealthRecord, DEFAULT_UNITS, HEALTH_METRIC_TYPES } from '../models/Heal
 import { evaluateMedicalThreshold } from '../utils/healthThresholds.js';
 import { User } from '../models/User.js';
 import mongoose from 'mongoose';
+import { processCriticalAlertTrigger } from '../services/alert.service.js';
+import { updateStreakOnRecord } from '../services/streak.service.js';
 
 /**
  * @desc    Tạo mới một bản ghi chỉ số sức khỏe (C trong CRUD)
@@ -35,10 +37,18 @@ export const createHealthRecord = async (req, res) => {
 
     await newRecord.save();
 
+    // Trigger cảnh báo nguy kịch (SCRUM-62)
+    const alertResult = await processCriticalAlertTrigger(newRecord, req.user);
+
+    // Cập nhật chuỗi Streak và huy hiệu (SCRUM-85)
+    const streakResult = await updateStreakOnRecord(req.user._id, newRecord.recordedAt);
+
     return res.status(201).json({
       success: true,
       message: 'Tạo bản ghi chỉ số sức khỏe thành công',
       data: newRecord,
+      alert: alertResult?.triggered ? alertResult : undefined,
+      streak: streakResult || undefined,
     });
   } catch (error) {
     console.error('Lỗi khi tạo chỉ số sức khỏe:', error);
