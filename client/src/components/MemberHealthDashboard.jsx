@@ -34,6 +34,7 @@ import {
 import { familyService } from '../services/api';
 import HealthAlertBadge from './HealthAlertBadge';
 import AiSummaryCard from './AiSummaryCard';
+import ExportPdfButton from './ExportPdfButton';
 
 const METRIC_CONFIGS = {
   BLOOD_PRESSURE: {
@@ -255,6 +256,14 @@ export default function MemberHealthDashboard({
 
           <div className="flex items-center gap-3 self-end sm:self-center">
             {getOverallStatusBadge(overallStatus)}
+            <ExportPdfButton
+              user={member}
+              familyId={familyId}
+              targetUserId={memberId}
+              buttonText="Xuất PDF"
+              variant="outline"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold"
+            />
             {onOpenPrivacy && (
               <button
                 onClick={onOpenPrivacy}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
 import FamilyPage from './components/FamilyPage';
@@ -8,6 +8,7 @@ import HealthRecordModal from './components/HealthRecordModal';
 import InvitationBanner from './components/InvitationBanner';
 import InvitationModal from './components/InvitationModal';
 import AiSummaryCard from './components/AiSummaryCard';
+import ExportPdfButton from './components/ExportPdfButton';
 import { 
   Heart, 
   LogOut, 
@@ -325,6 +326,12 @@ export default function App() {
               </div>
 
               <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+                <ExportPdfButton
+                  user={currentUser}
+                  buttonText="Xuất báo cáo PDF"
+                  variant="outline"
+                  className="px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm shadow-xs"
+                />
                 <button
                   onClick={() => setIsQuickLogOpen(true)}
                   className="px-5 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
