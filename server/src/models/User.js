@@ -90,7 +90,6 @@ userSchema.virtual('bmi').get(function () {
   return null;
 });
 
-userSchema.index({ email: 1 }, { unique: true });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   const hash = this.passwordHash || this.password;

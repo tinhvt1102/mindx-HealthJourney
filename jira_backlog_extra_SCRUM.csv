@@ -1,0 +1,62 @@
+﻿"Issue Type","Issue id","Parent id","Summary","Description","Story Points","Labels"
+"Epic","47","","[E7] Cảnh báo Khẩn cấp & Lịch nhắc Uống thuốc / Đo chỉ số","Epic quản lý cơ chế cảnh báo khẩn cấp khi chỉ số vượt ngưỡng nguy kịch và lập lịch nhắc nhở đo chỉ số, uống thuốc hàng ngày.","","mern-mentor,epic"
+"Story","48","47","[E7-S1] Cảnh báo khẩn cấp qua Email/Thông báo khi chỉ số vượt ngưỡng nguy kịch","Là một người theo dõi sức khỏe gia đình, tôi muốn nhận được thông báo khẩn cấp ngay lập tức khi người thân có chỉ số nguy kịch (Huyết áp >= 160/100 mmHg hoặc Nhịp tim > 130 / < 45 bpm, Đường huyết < 55 mg/dL) để tôi có thể gọi điện hoặc xử lý cấp cứu kịp thời.
+
+Acceptance Criteria:
+- AC1: Khi bản ghi mới được lưu có mức độ DANGER vượt ngưỡng nguy kịch, backend tự động quét danh sách người thân được quyền xem chỉ số đó.
+- AC2: Bắn chuông thông báo trong app (In-app Notification) và gửi Email khẩn cấp đến người thân với tiêu đề màu đỏ: CẢNH BÁO NGUY CẤP: [Tên người thân] vừa có chỉ số Huyết áp 165/105 mmHg!
+- AC3: Kèm theo nút bấm gọi điện thoại nhanh (Tel URL) và hướng dẫn sơ cứu nhanh cơ bản.","","mern-mentor,story"
+"Sub-task","49","48","[BE] Xây dựng Service kiểm tra ngưỡng nguy kịch và trigger Email thông báo","Xây dựng logic phát hiện ngưỡng nguy hiểm khẩn cấp và gửi email tự động bằng Nodemailer đến toàn bộ người thân được chia sẻ quyền.","3","mern-mentor,be"
+"Sub-task","50","48","[FE] Xây dựng Component Dropdown Chuông thông báo (Notification Bell)","Thêm biểu tượng chuông trên Header hiển thị danh sách thông báo chưa đọc, số lượng thông báo đỏ và popup cảnh báo tức thời.","3","mern-mentor,fe"
+"Sub-task","51","48","[TEST] Viết Integration test kiểm tra trigger gửi cảnh báo nguy kịch","Test case kiểm tra: tự động kích hoạt notification khi log chỉ số nguy hiểm, không gửi nếu chỉ số bình thường.","2","mern-mentor,test"
+"Story","52","47","[E7-S2] Lập lịch nhắc nhở đo chỉ số & uống thuốc hàng ngày","Là một người dùng (đặc biệt là người cao tuổi), tôi muốn cài đặt giờ nhắc nhở uống thuốc và đo huyết áp mỗi ngày để không bị quên.
+
+Acceptance Criteria:
+- AC1: Cho phép tạo lịch nhắc: Tên thuốc / Loại chỉ số cần đo, khung giờ (ví dụ: 07:00 sáng, 19:30 tối), chu kỳ lặp lại (Hàng ngày, Cách ngày).
+- AC2: Banner hiển thị danh sách việc cần làm trong ngày (Daily To-Do List) kèm nút tích ""Đã uống"" / ""Đã đo"".
+- AC3: Thống kê tỷ lệ tuân thủ điều trị theo tuần (Compliance Rate %).","","mern-mentor,story"
+"Sub-task","53","52","[DB] Thiết kế Mongoose schema ReminderSchedule","Tạo ReminderSchedule model (userId, title, type, targetTime, daysOfWeek, isCompleted, timestamps).","2","mern-mentor,db"
+"Sub-task","54","52","[BE] Xây dựng CRUD API /api/reminders","Viết các endpoint POST, GET, PUT, DELETE /api/reminders kèm route toggle đánh dấu hoàn thành trong ngày.","3","mern-mentor,be"
+"Sub-task","55","52","[FE] Xây dựng Widget Lịch uống thuốc & Danh sách to-do trong ngày","Giao diện to-do list kiểm tra uống thuốc và đo chỉ số hằng ngày với thanh tiến độ % hoàn thành.","3","mern-mentor,fe"
+"Epic","56","","[E8] Xuất Báo cáo Y tế PDF & Chia sẻ cho Bác sĩ","Epic quản lý việc xuất báo cáo sức khỏe 30 ngày định dạng PDF chuẩn in ấn và tạo liên kết truy cập an toàn cho bác sĩ.","","mern-mentor,epic"
+"Story","57","56","[E8-S1] Xuất hồ sơ sức khỏe 30 ngày ra file PDF chuẩn y khoa","Là người dùng, tôi muốn bấm 1 nút để tải file PDF tóm tắt toàn bộ chỉ số, biểu đồ và kết luận của AI trong 30 ngày qua để mang đi nộp cho bác sĩ khi đi tái khám.
+
+Acceptance Criteria:
+- AC1: Trang bị nút ""Xuất báo cáo PDF"" ở trang cá nhân và trang của người thân.
+- AC2: File PDF xuất ra có giao diện chuẩn báo cáo y khoa: Logo HealthJourney, thông tin bệnh nhân (Tên, Tuổi, Chiều cao, Cân nặng, BMI), bảng tổng hợp trung bình các chỉ số, biểu đồ diễn biến và phân tích của Trợ lý AI.
+- AC3: Hoạt động client-side mượt mà (sử dụng thư viện jspdf và html2canvas).","","mern-mentor,story"
+"Sub-task","58","57","[FE] Thiết kế mẫu Template Báo cáo y tế chuẩn in ấn A4","Tạo template trang in A4 sạch đẹp, chuyên nghiệp, hiển thị bảng chỉ số, ngưỡng y tế và thông tin bệnh nhân.","2","mern-mentor,fe"
+"Sub-task","59","57","[FE] Tích hợp thư viện jspdf & chụp biểu đồ Recharts nhúng vào PDF","Sử dụng jspdf và html2canvas để render file PDF sắc nét, tải trực tiếp về máy người dùng.","3","mern-mentor,fe"
+"Story","60","56","[E8-S2] Tạo link chia sẻ an toàn tạm thời cho Bác sĩ","Là người dùng, tôi muốn gửi một đường link kèm mã PIN 4 số cho bác sĩ phòng khám để bác sĩ xem nhanh trên điện thoại mà không cần phải đăng ký tài khoản.
+
+Acceptance Criteria:
+- AC1: Tạo link công khai tạm thời /shared-report/:token có thời hạn (24 giờ hoặc 7 ngày).
+- AC2: Bác sĩ mở link phải nhập đúng mã PIN (4 số do bệnh nhân đặt) mới mở được trang xem dạng Read-Only.
+- AC3: Cho phép người bệnh chủ động bấm ""Hủy link"" bất cứ lúc nào để thu hồi quyền truy cập.","","mern-mentor,story"
+"Sub-task","61","60","[BE] Xây dựng API tạo Public Share Token có mã PIN bảo mật","Endpoint POST /api/shares/create-doctor-link và GET /api/shares/:token kiểm tra mã PIN hash bằng bcrypt.","3","mern-mentor,be"
+"Sub-task","62","60","[FE] Xây dựng Giao diện xem nhanh Doctor Quick-View trên di động","Trang web xem hồ sơ bệnh án tối giản, tải nhanh trên điện thoại của bác sĩ, có ô nhập PIN bảo mật.","3","mern-mentor,fe"
+"Epic","63","","[E9] Tối ưu UX/UI: Chế độ Người cao tuổi & Dark Mode","Epic nâng cấp trải nghiệm người dùng với chế độ font chữ to dễ đọc cho người cao tuổi, đọc giọng nói và giao diện nền tối.","","mern-mentor,epic"
+"Story","64","63","[E9-S1] Chế độ giao diện Người cao tuổi (Senior Friendly Mode)","Là một người dùng lớn tuổi mắt kém, tôi muốn chuyển sang giao diện chữ to, nút bấm lớn và biểu tượng rõ ràng để dễ dàng tự ghi chỉ số.
+
+Acceptance Criteria:
+- AC1: Công tắc bật/tắt ""Chế độ người cao tuổi"" ở góc trên màn hình hoặc trang Hồ sơ.
+- AC2: Khi bật: Kích cỡ chữ tự động tăng 130%, khoảng cách dòng rộng rãi, các nút bấm có kích thước lớn tối thiểu 56px, màu sắc tương phản cao (High Contrast).
+- AC3: Tích hợp Text-to-Speech (Web Speech API miễn phí trên trình duyệt): Nhấn vào nút loa để máy tự đọc to kết quả đo.","","mern-mentor,story"
+"Sub-task","65","64","[FE] Xây dựng cấu hình CSS Senior Mode font chữ lớn & nút to","Tạo Tailwind senior theme: text-lg mặc định, padding rộng, viền tương phản cao và toggle lưu trong localStorage.","2","mern-mentor,fe"
+"Sub-task","66","64","[FE] Tích hợp Web Speech API đọc kết quả chỉ số bằng giọng nói tiếng Việt","Component nút bấm phát âm thanh giọng đọc tiếng Việt đọc to chỉ số huyết áp, nhịp tim và đánh giá an toàn.","2","mern-mentor,fe"
+"Story","67","63","[E9-S2] Giao diện Dark Mode & Tối ưu Mobile Bottom Navigation","Là người dùng thường đo huyết áp ban đêm hoặc sáng sớm, tôi muốn có Dark Mode để không bị chói mắt và có thanh điều hướng ở cạnh dưới trên điện thoại.
+
+Acceptance Criteria:
+- AC1: Hỗ trợ chuyển đổi Light/Dark theme mượt mà, lưu trạng thái vào localStorage.
+- AC2: Trên màn hình điện thoại (mobile <= 768px): Hiển thị thanh Bottom Navigation Bar cố định ở đáy màn hình gồm các tab: Trang chủ, Chỉ số, Gia đình, Hồ sơ.","","mern-mentor,story"
+"Sub-task","68","67","[FE] Cấu hình Dark theme Tailwind và bộ màu y tế ban đêm","Cấu hình class dark cho các card chỉ số, biểu đồ Recharts đổi màu nền tối dịu mắt khi theo dõi ban đêm.","3","mern-mentor,fe"
+"Sub-task","69","67","[FE] Xây dựng Component Mobile Bottom Nav Bar","Thanh điều hướng dưới đáy màn hình trên di động với icon to rõ, badge thông báo và thao tác 1 chạm.","2","mern-mentor,fe"
+"Epic","70","","[E10] Thử thách Thói quen & Bảng thi đua Gia đình","Epic áp dụng Gamification xây dựng chuỗi ngày đo liên tục (Streak), bảng xếp hạng và mở khóa huy hiệu chăm sóc sức khỏe.","","mern-mentor,epic"
+"Story","71","70","[E10-S1] Chuỗi ngày đo liên tục (Health Streak) & Huy hiệu thành tích","Là thành viên gia đình, tôi muốn thấy số ngày đo liên tục của mình và nhận huy hiệu để có động lực chăm sóc sức khỏe mỗi ngày.
+
+Acceptance Criteria:
+- AC1: Tính chuỗi ngày đo liên tiếp (ví dụ: 7 ngày liên tục). Nếu đứt đoạn 1 ngày sẽ reset chuỗi.
+- AC2: Mở khóa các huy hiệu vui nhộn: Chiến binh Huyết áp ổn định, Gia đình Gắn kết, Chuyên cần 30 ngày.
+- AC3: Widget hiển thị bảng xếp hạng nhỏ giữa các thành viên trong nhóm gia đình.","","mern-mentor,story"
+"Sub-task","72","71","[BE] Xây dựng Logic tính Streak và mở khóa Badges khi ghi nhận chỉ số","Service tính toán số ngày ghi nhận liên tiếp và lưu mảng badges vào profile người dùng.","2","mern-mentor,be"
+"Sub-task","73","71","[FE] Thiết kế Card hiển thị Streak lửa và bộ sưu tập huy hiệu thành tích","UI thẻ ngọn lửa Streak với số ngày đo liên tiếp và popup chúc mừng khi mở khóa huy hiệu mới.","3","mern-mentor,fe"
