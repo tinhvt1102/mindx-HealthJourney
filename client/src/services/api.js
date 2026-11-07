@@ -26,8 +26,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('health_token');
-      localStorage.removeItem('health_user');
+      // Chỉ xóa token nếu không phải là route verify-pin công khai
+      if (!error.config?.url?.includes('/shares/') || !error.config?.url?.includes('/verify-pin')) {
+        localStorage.removeItem('health_token');
+        localStorage.removeItem('health_user');
+      }
     }
     return Promise.reject(error);
   }
@@ -87,7 +90,6 @@ export const healthRecordService = {
     return res.data;
   },
   getAll: async (params = {}) => {
-    // params hỗ trợ: { type: 'BLOOD_PRESSURE', days: 7, days: 30, startDate, endDate }
     const res = await api.get('/health-records', { params });
     return res.data;
   },
@@ -159,10 +161,6 @@ export const policyService = {
 };
 
 export const aiService = {
-  /**
-   * Tóm tắt xu hướng sức khỏe bằng Gemini AI (SCRUM-54 / SCRUM-58)
-   * Hỗ trợ cả 2 signature: (targetUserId, familyId) hoặc ({ memberId, familyId, forceRefresh })
-   */
   summarizeTrends: async (targetUserIdOrParams = {}, familyId) => {
     let payload = {};
     if (typeof targetUserIdOrParams === 'object' && targetUserIdOrParams !== null) {
@@ -177,6 +175,86 @@ export const aiService = {
       if (familyId) payload.familyId = familyId;
     }
     const res = await api.post('/ai/summarize-trends', payload);
+    return res.data;
+  },
+};
+
+// Sprint 5: Notifications & Critical Alerts (SCRUM-63)
+export const notificationService = {
+  getAll: async () => {
+    const res = await api.get('/notifications');
+    return res.data;
+  },
+  getUnreadCount: async () => {
+    const res = await api.get('/notifications/unread-count');
+    return res.data;
+  },
+  markAsRead: async (id) => {
+    const res = await api.put(`/notifications/${id}/read`);
+    return res.data;
+  },
+  markAllAsRead: async () => {
+    const res = await api.put('/notifications/read-all');
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/notifications/${id}`);
+    return res.data;
+  },
+};
+
+// Sprint 5: Medication & Health Reminders (SCRUM-67 / SCRUM-68)
+export const reminderService = {
+  getAll: async () => {
+    const res = await api.get('/reminders');
+    return res.data;
+  },
+  create: async (data) => {
+    const res = await api.post('/reminders', data);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await api.put(`/reminders/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/reminders/${id}`);
+    return res.data;
+  },
+  toggle: async (id, date) => {
+    const res = await api.post(`/reminders/${id}/toggle`, { date });
+    return res.data;
+  },
+  getStats: async () => {
+    const res = await api.get('/reminders/stats');
+    return res.data;
+  },
+};
+
+// Sprint 6: Secure Doctor Share Links (SCRUM-74 / SCRUM-75)
+export const doctorShareService = {
+  createLink: async (data) => {
+    const res = await api.post('/shares/create-doctor-link', data);
+    return res.data;
+  },
+  getMyLinks: async () => {
+    const res = await api.get('/shares/my-links');
+    return res.data;
+  },
+  revokeLink: async (token) => {
+    const res = await api.delete(`/shares/${token}`);
+    return res.data;
+  },
+  verifyPin: async (token, pin) => {
+    const res = await api.post(`/shares/${token}/verify-pin`, { pin });
+    return res.data;
+  },
+};
+
+// Sprint 6: Streaks & Gamification Badges (SCRUM-85 / SCRUM-86)
+export const streakService = {
+  getMyStreak: async () => {
+    const res = await api.get('/streaks');
     return res.data;
   },
 };
