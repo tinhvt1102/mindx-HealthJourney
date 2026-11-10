@@ -104,7 +104,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <div 
               onClick={() => setCurrentTab('dashboard')}
@@ -119,11 +119,11 @@ export default function App() {
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-1.5 pl-4 border-l border-slate-200">
+            <nav className="hidden lg:flex items-center gap-1 pl-4 border-l border-slate-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setCurrentTab('dashboard')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs xl:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -136,7 +136,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('health')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs xl:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentTab === 'health'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -149,7 +149,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('family')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs xl:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentTab === 'family'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -162,7 +162,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('privacy')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs xl:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentTab === 'privacy'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -175,7 +175,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentTab('profile')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs xl:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentTab === 'profile'
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -187,12 +187,12 @@ export default function App() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             {/* Nút bấm Ghi chỉ số nhanh trên header */}
             <button
               type="button"
               onClick={() => setIsQuickLogOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4 text-teal-600" />
               <span>Ghi chỉ số</span>
@@ -214,7 +214,7 @@ export default function App() {
                   displayName.charAt(0).toUpperCase()
                 )}
               </div>
-              <span className="text-sm font-semibold max-w-[120px] truncate">
+              <span className="text-sm font-semibold max-w-[140px] truncate">
                 {displayName}
               </span>
             </button>
@@ -230,7 +230,7 @@ export default function App() {
         </div>
 
         {/* Mobile Navigation bar */}
-        <div className="md:hidden flex border-t border-slate-100 bg-white px-2 py-1.5 gap-1 overflow-x-auto">
+        <div className="lg:hidden flex border-t border-slate-100 bg-white px-2 py-1.5 gap-1 overflow-x-auto">
           <button
             type="button"
             onClick={() => setCurrentTab('dashboard')}
