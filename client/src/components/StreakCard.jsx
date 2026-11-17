@@ -34,7 +34,15 @@ export default function StreakCard({ onLogClick }) {
     fetchStreak();
   }, []);
 
-  if (loading || !streakData) return null;
+  // Dữ liệu mặc định nếu chưa có bản ghi hoặc backend đang khởi động
+  const effectiveData = streakData || {
+    currentStreak: 0,
+    longestStreak: 0,
+    lastLoggedDate: null,
+    totalBadgesUnlocked: 0,
+    totalBadgesAvailable: 6,
+    badges: [],
+  };
 
   const {
     currentStreak = 0,
@@ -43,7 +51,7 @@ export default function StreakCard({ onLogClick }) {
     totalBadgesUnlocked = 0,
     totalBadgesAvailable = 6,
     badges = [],
-  } = streakData;
+  } = effectiveData;
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isLoggedToday = lastLoggedDate === todayStr;
