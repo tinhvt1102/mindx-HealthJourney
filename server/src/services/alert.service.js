@@ -182,8 +182,9 @@ export const processCriticalAlertTrigger = async (healthRecord, user) => {
         }
 
         // Lấy thông tin user người nhận để lấy email
-        const recipient = await User.findById(member.userId).select('name fullName email');
-        if (!recipient || !recipient.email) continue;
+        const recipient = await User.findById(member.userId).select('name fullName email isDependent');
+        if (!recipient || !recipient.email || recipient.isDependent) continue;
+
 
         notifiedUserIds.add(viewerIdStr);
 

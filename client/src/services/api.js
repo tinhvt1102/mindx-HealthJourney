@@ -128,6 +128,18 @@ export const familyService = {
     const res = await api.get(`/families/${familyId}/members/${memberId}/health-overview`);
     return res.data;
   },
+  createDependent: async (familyId, dependentData) => {
+    const res = await api.post(`/families/${familyId}/dependents`, dependentData);
+    return res.data;
+  },
+  removeMember: async (familyId, memberId) => {
+    const res = await api.delete(`/families/${familyId}/members/${memberId}`);
+    return res.data;
+  },
+  nudgeMember: async (familyId, memberId, nudgeData = {}) => {
+    const res = await api.post(`/families/${familyId}/members/${memberId}/nudge`, nudgeData);
+    return res.data;
+  },
 };
 
 export const invitationService = {
@@ -150,8 +162,10 @@ export const invitationService = {
 };
 
 export const policyService = {
-  getPolicies: async (familyId) => {
-    const res = await api.get(`/families/${familyId}/policies`);
+  getPolicies: async (familyId, ownerId = null) => {
+    const res = await api.get(`/families/${familyId}/policies`, {
+      params: ownerId ? { ownerId } : undefined,
+    });
     return res.data;
   },
   updatePolicies: async (familyId, data) => {
@@ -255,6 +269,26 @@ export const doctorShareService = {
 export const streakService = {
   getMyStreak: async () => {
     const res = await api.get('/streaks');
+    return res.data;
+  },
+};
+
+// Lộ trình Thói quen & Bảng Kế hoạch Tuần (Phương án B & C)
+export const habitService = {
+  getWeekPlan: async (date) => {
+    const res = await api.get('/habits/week', { params: { date } });
+    return res.data;
+  },
+  savePlan: async (data) => {
+    const res = await api.post('/habits/plan', data);
+    return res.data;
+  },
+  toggleHabit: async (data) => {
+    const res = await api.post('/habits/log', data);
+    return res.data;
+  },
+  syncFromAi: async (data) => {
+    const res = await api.post('/habits/sync-ai', data);
     return res.data;
   },
 };

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Activity, 
@@ -84,6 +84,7 @@ export default function HealthRecordModal({
   recordToEdit = null,
   initialType = 'BLOOD_PRESSURE',
   currentUserHeight = null,
+  targetMember = null,
 }) {
   const [type, setType] = useState(initialType);
   const [systolic, setSystolic] = useState('');
@@ -135,9 +136,10 @@ export default function HealthRecordModal({
 
   // Tự động tính BMI xem trước khi người dùng nhập cân nặng
   useEffect(() => {
-    if (type === 'WEIGHT' && value && currentUserHeight) {
+    const effectiveHeight = targetMember?.heightCm || currentUserHeight;
+    if (type === 'WEIGHT' && value && effectiveHeight) {
       const w = parseFloat(value);
-      const hMeters = parseFloat(currentUserHeight) / 100;
+      const hMeters = parseFloat(effectiveHeight) / 100;
       if (w > 0 && hMeters > 0) {
         const bmiVal = (w / (hMeters * hMeters)).toFixed(1);
         setPreviewBmi(bmiVal);
@@ -147,7 +149,7 @@ export default function HealthRecordModal({
     } else {
       setPreviewBmi(null);
     }
-  }, [type, value, currentUserHeight]);
+  }, [type, value, currentUserHeight, targetMember]);
 
   if (!isOpen) return null;
 
@@ -220,6 +222,7 @@ export default function HealthRecordModal({
         type,
         recordedAt: recordedAt ? new Date(recordedAt).toISOString() : new Date().toISOString(),
         note: note.trim(),
+        ...(targetMember && !recordToEdit ? { targetUserId: targetMember._id || targetMember.id } : {}),
       };
 
       if (type === 'BLOOD_PRESSURE') {
@@ -276,7 +279,11 @@ export default function HealthRecordModal({
                 {recordToEdit ? 'Chỉnh sửa chỉ số sức khỏe' : 'Ghi nhận chỉ số sức khỏe'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {recordToEdit ? 'Cập nhật lại kết quả đo' : 'Lưu lại kết quả kiểm tra thể trạng của bạn'}
+                {recordToEdit
+                  ? 'Cập nhật lại kết quả đo'
+                  : targetMember
+                  ? `Đang ghi hộ cho: ${targetMember.fullName || targetMember.name}`
+                  : 'Lưu lại kết quả kiểm tra thể trạng của bạn'}
               </p>
             </div>
           </div>

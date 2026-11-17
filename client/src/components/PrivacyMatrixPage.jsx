@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Shield, 
@@ -85,6 +85,8 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
   const [families, setFamilies] = useState([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState(null);
   const [selectedFamilyName, setSelectedFamilyName] = useState('');
+  const [managedDependents, setManagedDependents] = useState([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState(null);
   
   // Ma trận quyền: Map viewerId -> Set/Array allowedMetrics
   const [matrix, setMatrix] = useState([]);
@@ -131,7 +133,10 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
         setMatrixLoading(true);
         setErrorMessage('');
         setSuccessMessage('');
-        const res = await policyService.getPolicies(selectedFamilyId);
+        const res = await policyService.getPolicies(selectedFamilyId, selectedOwnerId);
+        if (res.success) {
+          setManagedDependents(res.managedDependents || []);
+        }
         if (res.success && Array.isArray(res.policies)) {
           // Sao chép deep copy để so sánh thay đổi
           setMatrix(JSON.parse(JSON.stringify(res.policies)));
@@ -150,7 +155,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
     };
 
     loadPolicies();
-  }, [selectedFamilyId]);
+  }, [selectedFamilyId, selectedOwnerId]);
 
   // Kiểm tra có thay đổi chưa lưu không
   const checkChanges = (current) => {
@@ -242,6 +247,7 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
       setSuccessMessage('');
 
       const payload = {
+        ...(selectedOwnerId ? { ownerId: selectedOwnerId } : {}),
         policies: matrix.map((p) => ({
           viewerId: p.viewerId,
           allowedMetrics: p.allowedMetrics || [],
@@ -404,7 +410,10 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
             <button
               key={fam._id}
               type="button"
-              onClick={() => setSelectedFamilyId(fam._id)}
+              onClick={() => {
+                setSelectedFamilyId(fam._id);
+                setSelectedOwnerId(null);
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 selectedFamilyId === fam._id
                   ? 'bg-teal-600 text-white shadow-sm'
@@ -412,6 +421,40 @@ export default function PrivacyMatrixPage({ currentUser, onBack }) {
               }`}
             >
               {fam.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Bộ chọn hồ sơ cấu hình quyền (Bản thân hoặc Hồ sơ phụ thuộc đang quản lý) */}
+      {managedDependents.length > 0 && (
+        <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-2xl p-3.5 flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 shrink-0">
+            Cấu hình cho hồ sơ:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedOwnerId(null)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+              !selectedOwnerId
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-indigo-100 border border-indigo-200'
+            }`}
+          >
+            Hồ sơ của tôi
+          </button>
+          {managedDependents.map((dep) => (
+            <button
+              key={dep.id}
+              type="button"
+              onClick={() => setSelectedOwnerId(dep.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                selectedOwnerId === dep.id
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-indigo-100 border border-indigo-200'
+              }`}
+            >
+              {dep.name} ({dep.relationship})
             </button>
           ))}
         </div>

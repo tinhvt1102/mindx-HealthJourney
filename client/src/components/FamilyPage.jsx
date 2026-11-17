@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   UserPlus, UserMinus, Trash2, 
@@ -18,11 +18,16 @@ import {
   ChevronRight,
   Sparkles,
   Info,
-  Activity
+  Activity,
+  BellRing,
+  HeartHandshake,
 } from 'lucide-react';
 import { familyService, invitationService } from '../services/api';
 import InvitationModal from './InvitationModal';
 import MemberHealthDashboard from './MemberHealthDashboard';
+import DependentModal from './DependentModal';
+import CareNudgeModal from './CareNudgeModal';
+import HealthRecordModal from './HealthRecordModal';
 
 export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy }) {
   // Danh sách các nhóm gia đình của user
@@ -48,6 +53,12 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
   const [manualToken, setManualToken] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewToken, setReviewToken] = useState('');
+
+  // Caregiver Mode: Hồ sơ phụ thuộc, Ghi chỉ số hộ & Nhắc nhở người thân
+  const [isDependentModalOpen, setIsDependentModalOpen] = useState(false);
+  const [nudgeTargetMember, setNudgeTargetMember] = useState(null);
+  const [caregiverLogMember, setCaregiverLogMember] = useState(null);
+  const [removingMemberId, setRemovingMemberId] = useState(null);
 
   // Thông báo phản hồi
   const [successMessage, setSuccessMessage] = useState('');
@@ -81,6 +92,38 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
   useEffect(() => {
     fetchFamilies();
   }, []);
+
+  const refreshCurrentFamily = async () => {
+    if (!selectedFamilyId) return;
+    try {
+      const res = await familyService.getById(selectedFamilyId);
+      if (res.success && res.family) {
+        setCurrentFamily(res.family);
+      }
+    } catch (err) {
+      console.error('Lỗi làm mới chi tiết gia đình:', err);
+    }
+  };
+
+  const handleRemoveDependent = async (dependentUserId, dependentName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn gỡ hồ sơ "${dependentName}" khỏi nhóm gia đình?`)) {
+      return;
+    }
+    try {
+      setRemovingMemberId(dependentUserId);
+      setErrorMessage('');
+      const res = await familyService.removeMember(currentFamily._id, dependentUserId);
+      if (res?.success) {
+        setSuccessMessage(`Đã gỡ hồ sơ "${dependentName}" khỏi nhóm.`);
+        await refreshCurrentFamily();
+        await fetchFamilies();
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Không thể xóa hồ sơ phụ thuộc.');
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
 
   // Tải chi tiết nhóm gia đình đang được chọn
   useEffect(() => {
@@ -546,8 +589,19 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                       </p>
                     </div>
 
-                    <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 self-start sm:self-auto">
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setIsDependentModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 text-xs font-bold cursor-pointer transition-colors"
+                        title="Thêm hồ sơ phụ thuộc cho ông bà hoặc trẻ nhỏ không dùng smartphone"
+                      >
+                        <HeartHandshake className="w-3.5 h-3.5" />
+                        <span>+ Hồ sơ phụ thuộc</span>
+                      </button>
+                      <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700">
                       Tổng số: {currentFamily.members?.length || 0} thành viên
+                    </div>
                     </div>
                   </div>
 
@@ -561,12 +615,19 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                         const userObj = member.userId || {};
                         const displayName = userObj.name || userObj.fullName || userObj.email || 'Thành viên';
                         const isMemberAdmin = member.role === 'ADMIN';
+                        const isDependent = Boolean(userObj.isDependent || member.role === 'DEPENDENT');
+                        const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+                        const memberUserId = (userObj._id || userObj.id || member.userId)?.toString();
+                        const isSelf = memberUserId === currentUserId;
+                        const isCaregiverForThis =
+                          isDependent &&
+                          (userObj.managedBy?.toString() === currentUserId || isCurrentAdmin());
 
                         return (
                           <div key={member._id || index} className="py-3 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                                isMemberAdmin ? 'bg-teal-600' : 'bg-slate-600'
+                                isMemberAdmin ? 'bg-teal-600' : isDependent ? 'bg-indigo-500' : 'bg-slate-600'
                               }`}>
                                 {displayName.charAt(0).toUpperCase()}
                               </div>
@@ -575,12 +636,14 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                                   {displayName}
                                 </div>
                                 <div className="text-xs text-slate-500 truncate">
-                                  {userObj.email || 'Chưa có email'}
+                                  {isDependent
+                                    ? `Hồ sơ phụ thuộc • ${userObj.relationship || 'Người thân'}`
+                                    : userObj.email || 'Chưa có email'}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => setSelectedMemberForDashboard(member)}
@@ -590,12 +653,48 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
                                 <Activity className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Xem sức khỏe</span>
                               </button>
+                              {isCaregiverForThis && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCaregiverLogMember(userObj)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-all cursor-pointer shadow-2xs"
+                                  title={`Ghi chỉ số sức khỏe hộ cho ${displayName}`}
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Ghi hộ</span>
+                                </button>
+                              )}
+
+                              {!isDependent && !isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => setNudgeTargetMember(member)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer shadow-2xs"
+                                  title={`Gửi lời nhắc đo chỉ số / uống thuốc tới ${displayName}`}
+                                >
+                                  <BellRing className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Nhắc nhở</span>
+                                </button>
+                              )}
+
+                              {isCaregiverForThis && (
+                                <button
+                                  type="button"
+                                  disabled={removingMemberId === memberUserId}
+                                  onClick={() => handleRemoveDependent(memberUserId, displayName)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
+                                  title={`Gỡ hồ sơ phụ thuộc ${displayName}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
                               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                                 isMemberAdmin 
                                   ? 'bg-teal-50 text-teal-700 border border-teal-200' 
                                   : 'bg-slate-100 text-slate-600'
                               }`}>
-                                {isMemberAdmin ? 'Trưởng nhóm' : 'Thành viên'}
+                                {isMemberAdmin ? 'Trưởng nhóm' : isDependent ? 'Phụ thuộc' : 'Thành viên'}
                               </span>
                               <span className="text-[11px] text-slate-400 hidden sm:inline">
                                 Tham gia: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : '—'}
@@ -725,6 +824,38 @@ export default function FamilyPage({ currentUser, onBack, onNavigateToPrivacy })
           </div>
         </div>
       )}
+
+      {/* Caregiver Modals: Tạo hồ sơ phụ thuộc, Nhắc người thân & Ghi chỉ số hộ */}
+      <DependentModal
+        isOpen={isDependentModalOpen}
+        onClose={() => setIsDependentModalOpen(false)}
+        familyId={currentFamily?._id}
+        familyName={currentFamily?.name}
+        onSuccess={async (dep) => {
+          setSuccessMessage(`Đã thêm hồ sơ phụ thuộc "${dep.fullName}" vào nhóm!`);
+          await refreshCurrentFamily();
+          await fetchFamilies();
+        }}
+      />
+
+      <CareNudgeModal
+        isOpen={Boolean(nudgeTargetMember)}
+        onClose={() => setNudgeTargetMember(null)}
+        familyId={currentFamily?._id}
+        targetMember={nudgeTargetMember}
+        onSuccess={(msg) => setSuccessMessage(msg)}
+      />
+
+      <HealthRecordModal
+        isOpen={Boolean(caregiverLogMember)}
+        onClose={() => setCaregiverLogMember(null)}
+        targetMember={caregiverLogMember}
+        onSuccess={() => {
+          setSuccessMessage(
+            `Đã ghi hộ chỉ số mới cho "${caregiverLogMember?.fullName || caregiverLogMember?.name}"!`
+          );
+        }}
+      />
 
       {/* Modal duyệt lời mời bằng Token thủ công */}
       <InvitationModal

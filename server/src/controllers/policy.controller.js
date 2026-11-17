@@ -1,9 +1,41 @@
 import mongoose from 'mongoose';
 import { Family } from '../models/Family.js';
 import { SharingPolicy } from '../models/SharingPolicy.js';
+import { User } from '../models/User.js';
 
 /**
- * @desc    Lấy chính sách chia sẻ dữ liệu sức khỏe của người dùng hiện tại đối với các thành viên khác trong nhóm
+ * Helper: Xác định ownerId thực tế của chính sách chia sẻ (chính user hiện tại hoặc hồ sơ phụ thuộc do user quản lý)
+ */
+const resolvePolicyOwnerId = async (requestedOwnerId, currentUserId, family) => {
+  if (!requestedOwnerId || requestedOwnerId.toString() === currentUserId.toString()) {
+    return { ownerId: currentUserId };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(requestedOwnerId)) {
+    return { errorStatus: 400, errorMessage: 'ownerId không hợp lệ' };
+  }
+
+  const targetOwnerId = requestedOwnerId.toString();
+  const isOwnerMember = family.members.some(
+    (m) => m.userId?._id?.toString() === targetOwnerId || m.userId?.toString() === targetOwnerId
+  );
+  if (!isOwnerMember) {
+    return { errorStatus: 404, errorMessage: 'Hồ sơ mục tiêu không thuộc nhóm gia đình này' };
+  }
+
+  const ownerDoc = await User.findById(targetOwnerId).select('isDependent managedBy');
+  if (!ownerDoc || !ownerDoc.isDependent || ownerDoc.managedBy?.toString() !== currentUserId.toString()) {
+    return {
+      errorStatus: 403,
+      errorMessage: 'Bạn chỉ được phép cấu hình quyền riêng tư cho hồ sơ của bản thân hoặc hồ sơ phụ thuộc do bạn quản lý',
+    };
+  }
+
+  return { ownerId: targetOwnerId };
+};
+
+/**
+ * @desc    Lấy chính sách chia sẻ dữ liệu sức khỏe đối với các thành viên khác trong nhóm
  *          Áp dụng tiêu chí AC1 Jira SCRUM-41: Default Deny (mặc định mảng allowedMetrics: [])
  * @route   GET /api/families/:familyId/policies, GET /api/v1/families/:familyId/policies
  * @access  Private (Yêu cầu đăng nhập & là thành viên trong nhóm)
@@ -11,6 +43,7 @@ import { SharingPolicy } from '../models/SharingPolicy.js';
 export const getFamilySharingPolicies = async (req, res) => {
   try {
     const familyId = req.params.familyId || req.params.id;
+    const requestedOwnerId = req.query.ownerId;
 
     if (!mongoose.Types.ObjectId.isValid(familyId)) {
       return res.status(400).json({
@@ -21,7 +54,7 @@ export const getFamilySharingPolicies = async (req, res) => {
 
     const family = await Family.findById(familyId).populate(
       'members.userId',
-      'name fullName email avatar avatarUrl'
+      'name fullName email avatar avatarUrl isDependent managedBy relationship'
     );
 
     if (!family) {
@@ -47,9 +80,18 @@ export const getFamilySharingPolicies = async (req, res) => {
       });
     }
 
-    // 2. Lấy toàn bộ các policies đã được lưu trong DB của owner trong nhóm này
+    const resolved = await resolvePolicyOwnerId(requestedOwnerId, currentUserId, family);
+    if (resolved.errorStatus) {
+      return res.status(resolved.errorStatus).json({
+        success: false,
+        message: resolved.errorMessage,
+      });
+    }
+    const targetOwnerId = resolved.ownerId.toString();
+
+    // 2. Lấy toàn bộ các policies đã được lưu trong DB của owner mục tiêu trong nhóm này
     const existingPolicies = await SharingPolicy.find({
-      ownerId: req.user._id,
+      ownerId: targetOwnerId,
       familyId: family._id,
     });
 
@@ -58,8 +100,9 @@ export const getFamilySharingPolicies = async (req, res) => {
       policyMap.set(p.viewerId.toString(), p.allowedMetrics);
     });
 
-    // 3. Xây dựng ma trận quyền đối với TẤT CẢ các thành viên khác trong nhóm (ngoại trừ chính mình)
+    // 3. Xây dựng ma trận quyền đối với các thành viên có tài khoản thật trong nhóm (ngoại trừ targetOwnerId và hồ sơ phụ thuộc)
     const policies = [];
+    const managedDependents = [];
 
     for (const member of family.members) {
       const userObj = member.userId;
@@ -67,8 +110,17 @@ export const getFamilySharingPolicies = async (req, res) => {
 
       const memberUserId = (userObj._id || userObj).toString();
 
-      // Bỏ qua chính bản thân owner
-      if (memberUserId === currentUserId) continue;
+      // Thu thập danh sách hồ sơ phụ thuộc do currentUser quản lý để hiển thị bộ chuyển đổi
+      if (userObj.isDependent && userObj.managedBy?.toString() === currentUserId) {
+        managedDependents.push({
+          id: memberUserId,
+          name: userObj.fullName || userObj.name || 'Hồ sơ phụ thuộc',
+          relationship: userObj.relationship || 'Người thân',
+        });
+      }
+
+      // Bỏ qua hồ sơ chủ sở hữu đang cấu hình và các hồ sơ phụ thuộc (không có tài khoản đăng nhập)
+      if (memberUserId === targetOwnerId || userObj.isDependent) continue;
 
       const viewerName =
         userObj.name || userObj.fullName || userObj.email || 'Thành viên';
@@ -94,6 +146,8 @@ export const getFamilySharingPolicies = async (req, res) => {
       success: true,
       familyId: family._id,
       familyName: family.name,
+      ownerId: targetOwnerId,
+      managedDependents,
       count: policies.length,
       policies,
     });
@@ -116,7 +170,7 @@ export const getFamilySharingPolicies = async (req, res) => {
 export const updateFamilySharingPolicies = async (req, res) => {
   try {
     const familyId = req.params.familyId || req.params.id;
-    const { viewerId, allowedMetrics, policies } = req.body;
+    const { viewerId, allowedMetrics, policies, ownerId: requestedOwnerId } = req.body;
 
     const family = await Family.findById(familyId);
     if (!family) {
@@ -142,6 +196,15 @@ export const updateFamilySharingPolicies = async (req, res) => {
       });
     }
 
+    const resolved = await resolvePolicyOwnerId(requestedOwnerId, currentUserId, family);
+    if (resolved.errorStatus) {
+      return res.status(resolved.errorStatus).json({
+        success: false,
+        message: resolved.errorMessage,
+      });
+    }
+    const targetOwnerId = resolved.ownerId.toString();
+
     // Chuẩn bị danh sách các bản ghi cần cập nhật
     const updateList = [];
 
@@ -155,8 +218,8 @@ export const updateFamilySharingPolicies = async (req, res) => {
     for (const item of updateList) {
       const targetViewerId = item.viewerId.toString();
 
-      // Không thể tự cấp quyền chia sẻ cho chính mình
-      if (targetViewerId === currentUserId) {
+      // Không thể tự cấp quyền chia sẻ cho chính chủ sở hữu dữ liệu
+      if (targetViewerId === targetOwnerId) {
         return res.status(400).json({
           success: false,
           message: 'Không thể thiết lập chính sách chia sẻ cho chính bản thân mình',
@@ -188,7 +251,7 @@ export const updateFamilySharingPolicies = async (req, res) => {
 
       const savedPolicy = await SharingPolicy.findOneAndUpdate(
         {
-          ownerId: req.user._id,
+          ownerId: targetOwnerId,
           viewerId: targetViewerId,
           familyId: family._id,
         },
@@ -213,6 +276,7 @@ export const updateFamilySharingPolicies = async (req, res) => {
       success: true,
       message: 'Cập nhật chính sách chia sẻ dữ liệu thành công',
       familyId: family._id,
+      ownerId: targetOwnerId,
       updatedCount: updatedPolicies.length,
       policies: updatedPolicies,
     });

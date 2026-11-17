@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema(
@@ -69,6 +69,23 @@ const userSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    isDependent: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    managedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+    relationship: {
+      type: String,
+      trim: true,
+      maxlength: [40, 'Mối quan hệ tối đa 40 ký tự'],
+      default: '',
     },
     otp: {
       code: { type: String, select: false },

@@ -15,29 +15,43 @@ import DoctorQuickViewPage from './components/DoctorQuickViewPage';
 import RemindersWidget from './components/RemindersWidget';
 import StreakCard from './components/StreakCard';
 import MobileBottomNav from './components/MobileBottomNav';
-import { 
-  Heart, 
-  LogOut, 
-  User, 
-  Activity, 
-  Users, 
-  ShieldCheck, 
-  Shield, 
-  UserCog, 
-  LayoutDashboard, 
-  ChevronRight,
-  UserPlus,
+import Sidebar from './components/Sidebar';
+import WeeklyHabitBoard from './components/WeeklyHabitBoard';
+import {
+  Heart,
+  Activity,
+  Users,
+  ShieldCheck,
+  UserCog,
+  LayoutDashboard,
   Plus,
-  TrendingUp,
   Stethoscope,
-  Flame,
-  CalendarCheck
+  Menu,
+  CalendarCheck,
 } from 'lucide-react';
 import { authService } from './services/api';
+
+const TAB_META = {
+  dashboard: { title: 'Tổng quan sức khỏe', icon: LayoutDashboard },
+  health: { title: 'Chỉ số sức khỏe & Biểu đồ', icon: Activity },
+  habits: { title: 'Kế hoạch tuần & Thói quen', icon: CalendarCheck },
+  family: { title: 'Không gian Gia đình', icon: Users },
+  privacy: { title: 'Quyền riêng tư & Chia sẻ', icon: ShieldCheck },
+  profile: { title: 'Hồ sơ cá nhân', icon: UserCog },
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
+
+  // Trạng thái thu gọn Sidebar trên Desktop & mở Drawer trên Mobile
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('health_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Modal ghi nhận chỉ số nhanh toàn cục
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
@@ -135,168 +149,113 @@ export default function App() {
     localStorage.setItem('health_user', JSON.stringify(merged));
   };
 
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('health_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   if (!currentUser) {
     return <AuthPage onLoginSuccess={(user) => setCurrentUser(user)} />;
   }
 
   const avatarUrl = currentUser.avatar || currentUser.avatarUrl;
   const displayName = currentUser.fullName || currentUser.name || currentUser.email;
+  const activeTabMeta = TAB_META[currentTab] || TAB_META.dashboard;
+  const ActiveTabIcon = activeTabMeta.icon;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors pb-20 md:pb-8">
-      {/* Header chính */}
-      <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div 
-              onClick={() => setCurrentTab('dashboard')}
-              className="flex items-center gap-3 cursor-pointer group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20 group-hover:scale-105 transition-transform">
-                <Heart className="w-5 h-5 fill-white" />
-              </div>
-              <div>
-                <span className="font-bold text-slate-900 dark:text-white text-lg leading-tight block">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors flex">
+      {/* Thanh điều hướng Sidebar trái (Desktop) & Drawer (Mobile) */}
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        onOpenDoctorShare={() => setIsDoctorShareOpen(true)}
+        onLogout={handleLogout}
+        currentUser={currentUser}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
+
+      {/* Cột nội dung chính bên phải */}
+      <div className="flex-1 min-w-0 flex flex-col pb-20 md:pb-8">
+        {/* Topbar tối giản (h-14) */}
+        <header className="h-14 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-30">
+          <div className="h-full max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
+            {/* Trái: Menu + Logo trên Mobile | Tiêu đề trang hiện tại trên Desktop */}
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 -ml-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Mở menu điều hướng"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              <div
+                onClick={() => setCurrentTab('dashboard')}
+                className="flex md:hidden items-center gap-2 cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shadow-sm">
+                  <Heart className="w-4 h-4 fill-white" />
+                </div>
+                <span className="font-bold text-slate-900 dark:text-white text-base tracking-tight">
                   HealthJourney
                 </span>
-                <span className="text-xs text-teal-600 dark:text-teal-400 font-medium block">
-                  Nhật ký sức khỏe gia đình
-                </span>
+              </div>
+
+              <div className="hidden md:flex items-center gap-2.5 min-w-0">
+                <ActiveTabIcon className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                <h1 className="font-bold text-slate-900 dark:text-white text-base truncate">
+                  {activeTabMeta.title}
+                </h1>
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-1.5 pl-4 border-l border-slate-200 dark:border-slate-800">
+            {/* Phải: Các nút thao tác nhanh tối giản */}
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setCurrentTab('dashboard')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                  currentTab === 'dashboard'
-                    ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                onClick={() => setIsQuickLogOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm shadow-teal-600/25 transition-all cursor-pointer whitespace-nowrap"
               >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Tổng quan</span>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Ghi chỉ số</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setCurrentTab('health')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                  currentTab === 'health'
-                    ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                <span>Chỉ số sức khỏe</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCurrentTab('family')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                  currentTab === 'family'
-                    ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>Gia đình</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCurrentTab('privacy')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                  currentTab === 'privacy'
-                    ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Quyền riêng tư</span>
-              </button>
+              <ThemeToggle />
+              <NotificationBell />
 
               <button
                 type="button"
                 onClick={() => setCurrentTab('profile')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`p-0.5 rounded-full border-2 transition-all cursor-pointer ${
                   currentTab === 'profile'
-                    ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'border-teal-500 ring-2 ring-teal-500/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-teal-400'
                 }`}
+                title={`Hồ sơ cá nhân (${displayName})`}
+                aria-label="Hồ sơ cá nhân"
               >
-                <UserCog className="w-4 h-4" />
-                <span>Hồ sơ</span>
+                <div className="w-7 h-7 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    displayName.charAt(0).toUpperCase()
+                  )}
+                </div>
               </button>
-            </nav>
+            </div>
           </div>
+        </header>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Nút Chia sẻ Bác sĩ */}
-            <button
-              type="button"
-              onClick={() => setIsDoctorShareOpen(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 bg-teal-50/50 dark:bg-teal-950/30 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-xs font-bold transition-all cursor-pointer"
-              title="Tạo liên kết chia sẻ an toàn cho Bác sĩ"
-            >
-              <Stethoscope className="w-4 h-4 text-teal-600" />
-              <span>Gửi Bác sĩ</span>
-            </button>
-
-            {/* Nút bấm Ghi chỉ số nhanh */}
-            <button
-              type="button"
-              onClick={() => setIsQuickLogOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm shadow-teal-600/30 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Ghi chỉ số</span>
-            </button>
-
-            {/* Nút gạt Dark / Light Theme (SCRUM-81) */}
-            <ThemeToggle />
-
-            {/* Chuông Thông Báo Khẩn Cấp (SCRUM-63) */}
-            <NotificationBell />
-
-            {/* User Profile Pill */}
-            <button
-              onClick={() => setCurrentTab('profile')}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${
-                currentTab === 'profile'
-                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 text-teal-800 dark:text-teal-200'
-                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/70'
-              }`}
-              title="Xem và chỉnh sửa hồ sơ cá nhân"
-            >
-              <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  displayName.charAt(0).toUpperCase()
-                )}
-              </div>
-              <span className="text-xs font-semibold max-w-[90px] sm:max-w-[120px] truncate hidden sm:inline-block">
-                {displayName}
-              </span>
-            </button>
-
-            {/* Nút Đăng xuất */}
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-200 cursor-pointer"
-              title="Đăng xuất"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Main Content Area */}
+        <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1">
         <InvitationBanner 
           currentUser={currentUser} 
           onFamilyUpdated={() => {
@@ -325,6 +284,10 @@ export default function App() {
           <PrivacyMatrixPage
             currentUser={currentUser}
             onBack={() => setCurrentTab('dashboard')}
+          />
+        ) : currentTab === 'habits' ? (
+          <WeeklyHabitBoard
+            onNavigateToAi={() => setCurrentTab('dashboard')}
           />
         ) : (
           /* TAB DASHBOARD / TỔNG QUAN */
@@ -377,6 +340,7 @@ export default function App() {
               memberId={currentUser._id} 
               isSelfView={true}
               memberName={currentUser.name || currentUser.fullName || 'bạn'}
+              onOpenHabits={() => setCurrentTab('habits')}
             />
 
             {/* Thông tin tóm tắt chỉ số thể chất hiện tại */}
@@ -409,7 +373,7 @@ export default function App() {
             </div>
 
             {/* Quick Cards Điều Hướng */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
               <div 
                 onClick={() => setCurrentTab('health')}
                 className="p-5 rounded-2xl border border-teal-200/80 dark:border-teal-900/60 bg-teal-50/40 dark:bg-teal-950/20 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:border-teal-400 transition-all cursor-pointer group"
@@ -421,10 +385,28 @@ export default function App() {
                   </span>
                 </div>
                 <h4 className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-600 transition-colors">
-                  Chỉ số sức khỏe & Biểu đồ
+                  Chỉ số sức khỏe
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết và xem biểu đồ 7/30 ngày.
+                  Ghi nhận Huyết áp, Nhịp tim, Cân nặng, Đường huyết và biểu đồ.
+                </p>
+              </div>
+
+              <div 
+                onClick={() => setCurrentTab('habits')}
+                className="p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-400 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <CalendarCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+                    Mới • B & C
+                  </span>
+                </div>
+                <h4 className="font-semibold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors">
+                  Kế hoạch tuần
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                  Tick checklist ăn uống, tập luyện theo tuần và duy trì Habit Streak.
                 </p>
               </div>
 
@@ -442,7 +424,7 @@ export default function App() {
                   Không gian Gia đình
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Mời người thân tham gia để cùng theo dõi và nhận cảnh báo khẩn cấp khi có nguy cơ.
+                  Mời người thân cùng theo dõi và nhận cảnh báo khẩn cấp khi có nguy cơ.
                 </p>
               </div>
 
@@ -457,16 +439,17 @@ export default function App() {
                   </span>
                 </div>
                 <h4 className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-600 transition-colors">
-                  Quyền riêng tư & Chia sẻ
+                  Quyền riêng tư
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Chủ động chọn những người thân được phép xem từng chỉ số của bạn (Default Deny).
+                  Chủ động cấp quyền xem từng chỉ số cho người thân (Default Deny).
                 </p>
               </div>
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Mobile Bottom Navigation Bar (SCRUM-82) */}
       <MobileBottomNav

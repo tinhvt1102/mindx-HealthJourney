@@ -1,21 +1,88 @@
 import { HealthRecord, DEFAULT_UNITS, HEALTH_METRIC_TYPES } from '../models/HealthRecord.js';
 import { evaluateMedicalThreshold } from '../utils/healthThresholds.js';
 import { User } from '../models/User.js';
+import { Family } from '../models/Family.js';
 import mongoose from 'mongoose';
 import { processCriticalAlertTrigger } from '../services/alert.service.js';
 import { updateStreakOnRecord } from '../services/streak.service.js';
 
 /**
+ * Kiểm tra caller có quyền Người chăm sóc (Caregiver) đối với hồ sơ phụ thuộc không.
+ */
+const isAuthorizedCaregiverForDependent = async (dependentUser, callerId) => {
+  if (!dependentUser || !dependentUser.isDependent) return false;
+  if (dependentUser.managedBy?.toString() === callerId.toString()) return true;
+
+  const sharedAdminFamily = await Family.exists({
+    members: {
+      $all: [
+        { $elemMatch: { userId: callerId, role: 'ADMIN' } },
+        { $elemMatch: { userId: dependentUser._id } },
+      ],
+    },
+  });
+  return Boolean(sharedAdminFamily);
+};
+
+/**
+ * Kiểm tra người gọi có quyền sở hữu hoặc quyền chăm sóc đối với bản ghi hay không.
+ */
+const canManageHealthRecord = async (recordUserId, callerId) => {
+  if (recordUserId.toString() === callerId.toString()) return true;
+  const ownerUser = await User.findById(recordUserId).select('isDependent managedBy');
+  return isAuthorizedCaregiverForDependent(ownerUser, callerId);
+};
+
+/**
  * @desc    Tạo mới một bản ghi chỉ số sức khỏe (C trong CRUD)
+ *          Hỗ trợ Caregiver ghi hộ khi truyền targetUserId của hồ sơ phụ thuộc
  * @route   POST /api/v1/health-records
  * @access  Private
  */
 export const createHealthRecord = async (req, res) => {
   try {
-    const { type, value, systolic, diastolic, unit, recordedAt, note } = req.body;
+    const { type, value, systolic, diastolic, unit, recordedAt, note, targetUserId } = req.body;
+
+    let ownerUser = req.user;
+    const callerId = req.user._id.toString();
+
+    if (targetUserId && targetUserId.toString() !== callerId) {
+      if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'targetUserId không hợp lệ',
+        });
+      }
+
+      const dependentUser = await User.findById(targetUserId);
+      if (!dependentUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy hồ sơ thành viên',
+        });
+      }
+
+      if (!dependentUser.isDependent) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ được phép ghi chỉ số hộ cho hồ sơ phụ thuộc (Ông bà / Trẻ nhỏ)',
+        });
+      }
+
+      const allowed = await isAuthorizedCaregiverForDependent(dependentUser, req.user._id);
+      if (!allowed) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bạn không có quyền người chăm sóc cho hồ sơ phụ thuộc này',
+        });
+      }
+
+      ownerUser = dependentUser;
+    }
 
     const newRecord = new HealthRecord({
-      userId: req.user._id,
+      userId: ownerUser._id,
+      recordedBy: req.user._id,
       type,
       value: value !== undefined ? Number(value) : undefined,
       systolic: systolic !== undefined ? Number(systolic) : undefined,
@@ -25,9 +92,9 @@ export const createHealthRecord = async (req, res) => {
       note: note || '',
     });
 
-    // AC3 SCRUM-24: Tự động tính BMI khi log cân nặng dựa trên chiều cao profile
+    // AC3 SCRUM-24: Tự động tính BMI khi log cân nặng dựa trên chiều cao profile của người được đo
     if (type === 'WEIGHT' && value !== undefined) {
-      const userProfile = await User.findById(req.user._id).select('heightCm');
+      const userProfile = await User.findById(ownerUser._id).select('heightCm');
       if (userProfile && userProfile.heightCm) {
         const heightInMeters = userProfile.heightCm / 100;
         const weightKg = Number(value);
@@ -37,11 +104,11 @@ export const createHealthRecord = async (req, res) => {
 
     await newRecord.save();
 
-    // Trigger cảnh báo nguy kịch (SCRUM-62)
-    const alertResult = await processCriticalAlertTrigger(newRecord, req.user);
+    // Trigger cảnh báo nguy kịch (SCRUM-62) cho người thân có quyền xem chỉ số của ownerUser
+    const alertResult = await processCriticalAlertTrigger(newRecord, ownerUser);
 
     // Cập nhật chuỗi Streak và huy hiệu (SCRUM-85)
-    const streakResult = await updateStreakOnRecord(req.user._id, newRecord.recordedAt);
+    const streakResult = await updateStreakOnRecord(ownerUser._id, newRecord.recordedAt);
 
     return res.status(201).json({
       success: true,
@@ -146,8 +213,9 @@ export const getHealthRecordById = async (req, res) => {
       });
     }
 
-    // Đảm bảo tính bảo mật: chỉ chủ sở hữu mới xem được
-    if (record.userId.toString() !== req.user._id.toString()) {
+    // Đảm bảo tính bảo mật: chủ sở hữu hoặc người chăm sóc hồ sơ phụ thuộc mới xem được
+    const hasAccess = await canManageHealthRecord(record.userId, req.user._id);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền truy cập bản ghi này',
@@ -194,8 +262,9 @@ export const updateHealthRecord = async (req, res) => {
       });
     }
 
-    // Đảm bảo quyền sở hữu
-    if (record.userId.toString() !== req.user._id.toString()) {
+    // Đảm bảo quyền sở hữu hoặc quyền chăm sóc
+    const canEdit = await canManageHealthRecord(record.userId, req.user._id);
+    if (!canEdit) {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền chỉnh sửa bản ghi này',
@@ -253,8 +322,9 @@ export const deleteHealthRecord = async (req, res) => {
       });
     }
 
-    // Đảm bảo quyền sở hữu
-    if (record.userId.toString() !== req.user._id.toString()) {
+    // Đảm bảo quyền sở hữu hoặc quyền chăm sóc
+    const canDelete = await canManageHealthRecord(record.userId, req.user._id);
+    if (!canDelete) {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền xóa bản ghi này',
@@ -373,7 +443,9 @@ export const getFamilyMemberHealthOverview = async (req, res) => {
     const isSelfView = req.isSelfView || false;
 
     // 1. Lấy thông tin thành viên mục tiêu
-    const targetUser = await User.findById(memberId).select('name fullName email avatar avatarUrl birthDate gender heightCm');
+    const targetUser = await User.findById(memberId).select(
+      'name fullName email avatar avatarUrl birthDate gender heightCm isDependent managedBy relationship'
+    );
     if (!targetUser) {
       return res.status(404).json({
         success: false,
@@ -390,6 +462,7 @@ export const getFamilyMemberHealthOverview = async (req, res) => {
 
     const memberInfo = {
       id: targetUser._id,
+      _id: targetUser._id,
       name: targetUser.fullName || targetUser.name || targetUser.email,
       fullName: targetUser.fullName || targetUser.name,
       email: targetUser.email,
@@ -398,6 +471,9 @@ export const getFamilyMemberHealthOverview = async (req, res) => {
       gender: targetUser.gender || 'UNKNOWN',
       heightCm: targetUser.heightCm || 170,
       birthDate: targetUser.birthDate,
+      isDependent: Boolean(targetUser.isDependent),
+      managedBy: targetUser.managedBy || null,
+      relationship: targetUser.relationship || '',
       role: memberRecord?.role || 'MEMBER',
       joinedAt: memberRecord?.joinedAt || new Date(),
     };
