@@ -63,6 +63,12 @@ const healthRecordSchema = new mongoose.Schema(
       maxlength: [500, 'Ghi chú tối đa 500 ký tự'],
       default: '',
     },
+    // Người thực sự nhập liệu (khi người thân/caregiver ghi hộ hồ sơ phụ thuộc)
+    recordedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     // Chỉ dùng khi type = WEIGHT: BMI tự động tính từ cân nặng và chiều cao profile (AC3 SCRUM-24)
     bmi: {
       type: Number,

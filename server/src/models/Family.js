@@ -11,8 +11,8 @@ const familyMemberSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['ADMIN', 'MEMBER'],
-        message: 'Vai trò chỉ có thể là ADMIN hoặc MEMBER',
+        values: ['ADMIN', 'MEMBER', 'DEPENDENT'],
+        message: 'Vai trò chỉ có thể là ADMIN, MEMBER hoặc DEPENDENT',
       },
       default: 'MEMBER',
     },

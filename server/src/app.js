@@ -11,6 +11,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import reminderRoutes from './routes/reminder.routes.js';
 import shareRoutes from './routes/share.routes.js';
 import streakRoutes from './routes/streak.routes.js';
+import habitRoutes from './routes/habit.routes.js';
 
 const app = express();
 
@@ -50,6 +51,8 @@ app.use('/api/shares', shareRoutes);
 app.use('/api/v1/shares', shareRoutes);
 app.use('/api/streaks', streakRoutes);
 app.use('/api/v1/streaks', streakRoutes);
+app.use('/api/habits', habitRoutes);
+app.use('/api/v1/habits', habitRoutes);
 
 // 404 Handler
 app.use((req, res) => {

@@ -15,7 +15,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['CRITICAL_ALERT', 'REMINDER', 'INVITATION', 'SYSTEM'],
+      enum: ['CRITICAL_ALERT', 'REMINDER', 'INVITATION', 'CARE_NUDGE', 'SYSTEM'],
       default: 'CRITICAL_ALERT',
       index: true,
     },

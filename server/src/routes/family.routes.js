@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import { protect } from '../middlewares/auth.middleware.js';
 import { validateInviteMember } from '../middlewares/invitationValidation.middleware.js';
 import { inviteMember } from '../controllers/invitation.controller.js';
@@ -9,6 +9,8 @@ import {
   updateFamily,
   deleteFamily,
   removeMember,
+  createDependentProfile,
+  nudgeFamilyMember,
 } from '../controllers/family.controller.js';
 import {
   getFamilySharingPolicies,
@@ -35,6 +37,10 @@ router.route('/:id')
 // Xóa thành viên hoặc thành viên tự rời nhóm (SCRUM-34)
 router.delete('/:id/members/:memberId', removeMember);
 
+// Caregiver Features: Hồ sơ phụ thuộc (Ông bà / Trẻ nhỏ) & Gửi lời nhắc yêu thương
+router.post('/:id/dependents', createDependentProfile);
+router.post('/:familyId/members/:memberId/nudge', nudgeFamilyMember);
+
 // Endpoint gửi lời mời theo ticket SCRUM-38
 router.post('/:id/invite', validateInviteMember, inviteMember);
 
@@ -49,7 +55,6 @@ router.get(
   healthAccessControl,
   getFamilyMemberHealthRecords
 );
-
 
 // Endpoint lấy tổng quan chỉ số sức khỏe của thành viên có kiểm soát quyền SharingPolicy & Đánh giá ngưỡng y khoa (Jira SCRUM-50 / SCRUM-52)
 router.get(

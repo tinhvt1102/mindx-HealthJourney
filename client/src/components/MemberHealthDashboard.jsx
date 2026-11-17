@@ -20,7 +20,8 @@ import {
   Info,
   SlidersHorizontal,
   Thermometer,
-  Wind
+  Wind,
+  Plus,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -34,6 +35,7 @@ import {
 import { familyService } from '../services/api';
 import HealthAlertBadge from './HealthAlertBadge';
 import AiSummaryCard from './AiSummaryCard';
+import HealthRecordModal from './HealthRecordModal';
 
 const METRIC_CONFIGS = {
   BLOOD_PRESSURE: {
@@ -95,6 +97,7 @@ export default function MemberHealthDashboard({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [isCaregiverLogOpen, setIsCaregiverLogOpen] = useState(false);
 
   const fetchOverview = async () => {
     try {
@@ -212,6 +215,10 @@ export default function MemberHealthDashboard({
 
   const { member, isSelfView, overallStatus, metrics, recentHistory } = data;
   const targetName = member?.name || member?.fullName || memberName || 'Thành viên';
+  const isDependent = Boolean(member?.isDependent);
+  const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+  const isCaregiverForDependent =
+    isDependent && member?.managedBy?.toString() === currentUserId;
 
   return (
     <div className="space-y-6">
@@ -236,7 +243,11 @@ export default function MemberHealthDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">{targetName}</h2>
-                {isSelfView ? (
+                {isDependent ? (
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-indigo-100 text-indigo-800">
+                    Phụ thuộc {member?.relationship ? `• ${member.relationship}` : ''}
+                  </span>
+                ) : isSelfView ? (
                   <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-emerald-100 text-emerald-800">
                     Chính bạn
                   </span>
@@ -247,13 +258,23 @@ export default function MemberHealthDashboard({
                 )}
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                <span>{member?.email}</span>
+                <span>{isDependent ? 'Hồ sơ được người chăm sóc quản lý' : member?.email}</span>
                 {member?.heightCm && <span>• Chiều cao: {member.heightCm} cm</span>}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-center">
+            {isCaregiverForDependent && (
+              <button
+                type="button"
+                onClick={() => setIsCaregiverLogOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Ghi chỉ số hộ</span>
+              </button>
+            )}
             {getOverallStatusBadge(overallStatus)}
             {onOpenPrivacy && (
               <button
@@ -479,7 +500,16 @@ export default function MemberHealthDashboard({
         })}
       </div>
 
-      {/* Trợ lý AI Tóm tắt & Phân tích Xu hướng (SCRUM-54) */}
+      {isCaregiverForDependent && (
+        <HealthRecordModal
+          isOpen={isCaregiverLogOpen}
+          onClose={() => setIsCaregiverLogOpen(false)}
+          targetMember={member}
+          onSuccess={() => {
+            fetchOverview();
+          }}
+        />
+      )}
       <AiSummaryCard
         memberId={memberId}
         familyId={familyId}

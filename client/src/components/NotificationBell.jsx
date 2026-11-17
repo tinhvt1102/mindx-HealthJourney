@@ -8,7 +8,8 @@ import {
   ShieldAlert, 
   Clock, 
   ExternalLink,
-  HeartPulse
+  HeartPulse,
+  HeartHandshake
 } from 'lucide-react';
 import { notificationService } from '../services/api';
 
@@ -18,6 +19,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedEmergency, setSelectedEmergency] = useState(null);
+  const [selectedNudge, setSelectedNudge] = useState(null);
 
   const dropdownRef = useRef(null);
 
@@ -75,10 +77,14 @@ export default function NotificationBell() {
     }
   };
 
-  const openEmergencyModal = (notif) => {
-    setSelectedEmergency(notif);
+  const handleNotificationClick = (notif) => {
     if (!notif.isRead) {
       handleMarkAsRead(notif._id);
+    }
+    if (notif.type === 'CARE_NUDGE') {
+      setSelectedNudge(notif);
+    } else {
+      setSelectedEmergency(notif);
     }
   };
 
@@ -139,14 +145,17 @@ export default function NotificationBell() {
             ) : (
               notifications.map((notif) => {
                 const isCritical = notif.type === 'CRITICAL_ALERT';
+                const isCareNudge = notif.type === 'CARE_NUDGE';
                 return (
                   <div
                     key={notif._id}
-                    onClick={() => openEmergencyModal(notif)}
+                    onClick={() => handleNotificationClick(notif)}
                     className={`p-3.5 transition-colors cursor-pointer flex gap-3 text-left ${
                       !notif.isRead
                         ? isCritical
                           ? 'bg-rose-50/60 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                          : isCareNudge
+                          ? 'bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30'
                           : 'bg-teal-50/40 dark:bg-teal-950/20 hover:bg-teal-50/60 dark:hover:bg-teal-950/30'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
                     }`}
@@ -155,11 +164,15 @@ export default function NotificationBell() {
                       className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
                         isCritical
                           ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400'
+                          : isCareNudge
+                          ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400'
                           : 'bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400'
                       }`}
                     >
                       {isCritical ? (
                         <AlertTriangle className="w-5 h-5 animate-bounce" />
+                      ) : isCareNudge ? (
+                        <HeartHandshake className="w-5 h-5" />
                       ) : (
                         <HeartPulse className="w-5 h-5" />
                       )}
@@ -171,13 +184,19 @@ export default function NotificationBell() {
                           className={`text-xs font-bold leading-tight truncate ${
                             isCritical
                               ? 'text-rose-700 dark:text-rose-400'
+                              : isCareNudge
+                              ? 'text-amber-800 dark:text-amber-300'
                               : 'text-slate-800 dark:text-slate-200'
                           }`}
                         >
                           {notif.title}
                         </h4>
                         {!notif.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1" />
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 mt-1 ${
+                              isCritical ? 'bg-rose-500' : 'bg-teal-500'
+                            }`}
+                          />
                         )}
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2 leading-relaxed">
@@ -191,6 +210,11 @@ export default function NotificationBell() {
                         {isCritical && (
                           <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline">
                             Xem sơ cứu & gọi 🚨
+                          </span>
+                        )}
+                        {isCareNudge && (
+                          <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+                            Lời nhắc gia đình 💚
                           </span>
                         )}
                       </div>
@@ -276,6 +300,58 @@ export default function NotificationBell() {
                 Đã nắm rõ
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Lời nhắc yêu thương từ người thân (Care Nudge) */}
+      {selectedNudge && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setSelectedNudge(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-teal-200 dark:border-teal-800 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedNudge(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 text-teal-600 dark:text-teal-400 mb-4">
+              <div className="w-11 h-11 rounded-2xl bg-teal-50 dark:bg-teal-900/40 flex items-center justify-center shrink-0">
+                <HeartHandshake className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Lời nhắc yêu thương
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {selectedNudge.data?.familyName ? `Nhóm: ${selectedNudge.data.familyName}` : 'Từ gia đình của bạn'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800/50 rounded-2xl p-4 mb-5 space-y-1.5">
+              <p className="text-sm font-bold text-teal-900 dark:text-teal-200">
+                {selectedNudge.title}
+              </p>
+              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                {selectedNudge.message}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedNudge(null)}
+              className="w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm transition-colors cursor-pointer"
+            >
+              Cảm ơn, tôi đã nhận lời nhắc
+            </button>
           </div>
         </div>
       )}

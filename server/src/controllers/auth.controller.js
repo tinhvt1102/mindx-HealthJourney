@@ -1,4 +1,4 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { sendOtpEmail } from '../services/email.service.js';
@@ -200,6 +200,12 @@ export const login = async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash +password');
+    if (user?.isDependent) {
+      return res.status(403).json({
+        success: false,
+        message: 'Hồ sơ phụ thuộc được quản lý trực tiếp bởi người chăm sóc trong nhóm gia đình',
+      });
+    }
     if (!user) {
       return res.status(401).json({
         success: false,
