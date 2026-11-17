@@ -116,9 +116,12 @@ export const buildGeminiPrompt = (grouped, ownerName, isSelfView) => {
 Nhiệm vụ của bạn là phân tích dữ liệu đo lường của ${targetLabel} và tạo bản tổng hợp xu hướng kết hợp gợi ý quy trình ăn uống, tập luyện phù hợp trực tiếp với các số liệu đã ghi nhận.
 
 HƯỚNG DẪN ĐỊNH DẠNG:
-- Trả về BẮT BUỘC bằng tiếng Việt có dấu, văn phong y tế ân cần, thực tế và dễ áp dụng.
+- Trả về BẮT BUỘC bằng tiếng Việt có dấu, văn phong y tế súc tích, thực tế và dễ áp dụng.
 - KHÔNG sử dụng xưng hô ngôi thứ nhất ("tôi", "chúng tôi").
 - CHỈ phân tích và đề xuất dựa trên đúng các nhóm dữ liệu có mặt ở phần DỮ LIỆU ĐO LƯỜNG bên dưới.
+- Với 2 mục "Quy trình ăn uống phù hợp" và "Quy trình tập luyện phù hợp":
+  + Mỗi mục PHẢI viết dạng gạch đầu dòng ngắn gọn: - **[Tên hành động ngắn gọn 3-6 từ]**: [Hướng dẫn cụ thể 1 câu ngắn, chuẩn khoa học].
+  + Tránh hoàn toàn các đoạn văn dài, nhiều chữ để người dùng dễ đọc và chuyển thành checklist tick theo dõi hàng ngày.
 - Cấu trúc kết quả CHÍNH XÁC theo 5 đề mục Markdown sau (không thêm/bớt đề mục):
 
 ### 📊 Xu hướng chính
@@ -182,31 +185,31 @@ const buildMetricCarePlans = (grouped) => {
 
     if (sys >= 140 || dia >= 90) {
       dietTips.push(
-        `**Kiểm soát muối theo chế độ DASH (Huyết áp ${sys}/${dia} mmHg)**: Giảm lượng muối dưới 5g/ngày (~1 thìa cà phê), hạn chế đồ muối chua, nước mắm mặn, thực phẩm đóng hộp; ưu tiên rau lá xanh, chuối, bơ, cá béo giàu Omega-3 và Kali.`
+        `**Ăn nhạt theo chuẩn DASH**: Giảm muối dưới 5g/ngày (< 1 thìa cà phê), tăng rau xanh, chuối và các loại đậu giàu Kali.`
       );
       if (sys >= 160 || dia >= 100) {
         hasAcuteRestNeeded = true;
         workoutTips.push(
-          `**Vận động an toàn khi huyết áp cao (${sys}/${dia} mmHg)**: Tạm ngưng bài tập nặng hoặc nín thở nâng tạ; ưu tiên nghỉ ngơi, tập hít thở sâu (4 giây hít vào - 6 giây thở ra) trong 10 phút và hỏi ý kiến bác sĩ trước khi tập lại.`
+          `**Nghỉ ngơi & Thở sâu**: Tạm ngưng bài tập nặng; tập thở sâu (4s hít - 6s thở) 10 phút và đo lại sau 15-30 phút.`
         );
       } else {
         workoutTips.push(
-          `**Cardio cường độ nhẹ - vừa (Huyết áp ${sys}/${dia} mmHg)**: Đi bộ nhanh, đạp xe thư giãn hoặc Thái cực quyền **25–30 phút/buổi, 5 buổi/tuần**; khởi động kỹ 5 phút và tránh thay đổi tư thế đột ngột.`
+          `**Đi bộ nhanh vừa sức 30 phút**: Đi bộ hoặc đạp xe nhẹ 150 phút/tuần theo chuẩn WHO, tránh nín thở nâng tạ nặng.`
         );
       }
     } else if (sys > 0 && sys < 90) {
       dietTips.push(
-        `**Bổ sung nước & điện giải (Huyết áp thấp ${sys}/${dia} mmHg)**: Uống đủ 2–2.2 lít nước/ngày, có thể dùng thêm trà gừng ấm buổi sáng, chia nhỏ 4–5 bữa tránh tụt áp sau ăn.`
+        `**Bổ sung nước & Khoáng chất**: Uống đủ 2 - 2.5L nước ấm/ngày, chia nhỏ bữa ăn trong ngày giúp huyết áp ổn định.`
       );
       workoutTips.push(
-        `**Tập nhẹ tăng tuần hoàn**: Tập yoga cơ bản hoặc đi bộ nhẹ 20–25 phút/ngày; đứng dậy từ từ sau khi nằm/ngồi và ngừng tập ngay nếu thấy chóng mặt.`
+        `**Tập thể dục nhẹ nhàng 20 phút**: Tập yoga cơ bản hoặc đi bộ nhẹ, tránh thay đổi tư thế đứng/nằm đột ngột.`
       );
     } else {
       dietTips.push(
-        `**Dinh dưỡng bảo vệ tim mạch (Huyết áp ổn định ${sys}/${dia} mmHg)**: Duy trì khẩu phần ít chất béo bão hòa, ăn nhạt vừa phải, tối thiểu 300–400g rau củ và trái cây mỗi ngày.`
+        `**Ăn nhạt & Dinh dưỡng tim mạch**: Duy trì khẩu phần ít mỡ bão hòa, bổ sung 400g rau củ và trái cây tươi mỗi ngày.`
       );
       workoutTips.push(
-        `**Duy trì thể lực tim mạch**: Đi bộ nhanh, bơi lội hoặc đạp xe **30 phút/ngày (tối thiểu 150 phút/tuần)** ở cường độ vừa phải.`
+        `**Duy trì Cardio 30 phút**: Đi bộ nhanh, bơi lội hoặc đạp xe (chuẩn 150 phút/tuần của WHO) ở cường độ vừa phải.`
       );
     }
   }
@@ -218,17 +221,17 @@ const buildMetricCarePlans = (grouped) => {
 
     if (lastHr > 100 || evalHr.level === 'DANGER') {
       dietTips.push(
-        `**Làm dịu nhịp tim (Nhịp tim ${lastHr} bpm)**: Hạn chế cà phê đặc, trà đậm, nước tăng lực và rượu bia; tăng cường thực phẩm giàu Magie & Kali như các loại hạt, yến mạch, rau bina.`
+        `**Hạn chế chất kích thích**: Giảm cà phê đặc, trà đậm, nước tăng lực và rượu bia; ăn thêm chuối, hạt giàu Magie.`
       );
       workoutTips.push(
-        `**Bài tập điều hòa nhịp tim**: Ưu tiên yoga giãn cơ nhẹ và tập thở sâu **15–20 phút/ngày**; giữ nhịp tim mục tiêu ở vùng nhẹ, tránh chạy nước rút hoặc HIIT lúc này.`
+        `**Tập thở & Yoga phục hồi 15 phút**: Thư giãn làm dịu nhịp tim; tránh các bài tập gắng sức nhanh (HIIT).`
       );
     } else {
       dietTips.push(
-        `**Hỗ trợ sức bền tim (Nhịp tim ${lastHr} bpm)**: Bổ sung đạm sạch (cá hồi, ức gà, đậu nành), vitamin nhóm B và uống đủ nước trước/sau khi vận động.`
+        `**Dinh dưỡng trợ tim**: Bổ sung đạm nạc (cá béo, đậu), rau xanh và uống đủ nước trước và sau khi vận động.`
       );
       workoutTips.push(
-        `**Rèn luyện nhịp tim vùng hiếu khí (Zone 2)**: Chạy bộ chậm, đạp xe hoặc nhảy dây nhẹ **30–40 phút/buổi, 3–4 buổi/tuần** giúp cơ tim bơm máu hiệu quả hơn.`
+        `**Rèn luyện hiếu khí Zone 2**: Đi bộ nhanh hoặc đạp xe nhẹ 30-40 phút giúp tăng cường sức bền cơ tim.`
       );
     }
   }
@@ -239,24 +242,24 @@ const buildMetricCarePlans = (grouped) => {
 
     if (lastBs >= 126) {
       dietTips.push(
-        `**Thực đơn chỉ số đường huyết thấp Low-GI (Đường huyết ${lastBs} mg/dL)**: Thay cơm trắng/bánh mì trắng bằng gạo lứt, khoai lang, yến mạch; áp dụng quy tắc ăn **Rau xanh trước -> Đạm -> Tinh bột sau**, tránh hoàn toàn nước ngọt có ga và bánh kẹo.`
+        `**Chế độ Low-GI giảm đường**: Ăn gạo lứt/yến mạch, ăn rau trước tinh bột, hạn chế đường ngọt dưới 25g/ngày.`
       );
       workoutTips.push(
-        `**Vận động hạ đường huyết sau ăn**: Đi bộ nhẹ nhàng **15–20 phút sau bữa ăn chính khoảng 30 phút**, kết hợp 2–3 buổi tập kháng lực nhẹ (squat ghế, tạ tay nhẹ) mỗi tuần để tăng độ nhạy Insulin.`
+        `**Đi bộ 15-20 phút sau bữa ăn**: Giúp cơ bắp tiêu thụ glucose, hạ đường huyết tự nhiên sau bữa ăn chính.`
       );
     } else if (lastBs > 0 && lastBs < 70) {
       dietTips.push(
-        `**Ổn định đường huyết tránh hạ đường (Đường huyết ${lastBs} mg/dL)**: Không bỏ bữa; mang theo 1–2 viên kẹo hoặc gói sữa nhỏ, ăn kết hợp tinh bột phức + đạm vào các bữa phụ.`
+        `**Ổn định đường huyết**: Không bỏ bữa, chia 3 bữa chính kèm 2 bữa phụ nhẹ giàu đạm và tinh bột phức hợp.`
       );
       workoutTips.push(
-        `**An toàn đường huyết khi tập**: Không tập luyện khi bụng đói; ăn nhẹ 1 quả chuối hoặc lát bánh mì nguyên cám trước buổi tập nhẹ 20–30 phút.`
+        `**Vận động an toàn**: Ăn nhẹ 1 quả chuối trước khi tập 20 phút, tuyệt đối không tập khi bụng đói.`
       );
     } else {
       dietTips.push(
-        `**Cân bằng đường huyết (${lastBs} mg/dL)**: Chia bữa ăn hợp lý, ưu tiên chất xơ hòa tan và hạn chế đường tinh luyện dưới 25g/ngày.`
+        `**Cân bằng đường tự nhiên**: Ưu tiên chất xơ hòa tan từ rau củ, hạn chế đồ uống ngọt có ga và bánh kẹo.`
       );
       workoutTips.push(
-        `**Vận động chuyển hóa**: Duy trì đi bộ nhanh hoặc tập thể dục toàn thân **30 phút/ngày, 5 ngày/tuần**.`
+        `**Vận động chuyển hóa**: Duy trì đi bộ nhanh hoặc thể dục toàn thân 30 phút/ngày, 5 ngày/tuần.`
       );
     }
   }
@@ -267,26 +270,26 @@ const buildMetricCarePlans = (grouped) => {
     const lastW = last?.value;
     const bmi = last?.bmi;
 
-    if (bmi && bmi >= 25) {
+    if (bmi && bmi >= 23) {
       dietTips.push(
-        `**Chế độ kiểm soát cân nặng (Cân nặng ${lastW} kg, BMI ${bmi})**: Tạo mức thâm hụt calo an toàn ~300–400 kcal/ngày bằng cách giảm tinh bột buổi tối và đồ chiên rán; giữ 1/2 đĩa ăn là rau xanh, 1/4 đạm nạc (cá, ức gà, trứng), 1/4 tinh bột chậm.`
+        `**Thâm hụt calo lành mạnh**: Giảm 300-400 kcal/ngày, đĩa ăn 1/2 rau xanh, 1/4 đạm nạc, 1/4 tinh bột chậm.`
       );
       workoutTips.push(
-        `**Lịch đốt mỡ bảo vệ khớp (BMI ${bmi})**: Tập **45 phút/buổi, 4–5 buổi/tuần** gồm 30 phút đi bộ nhanh/bơi lội/đạp xe (ít chấn động khớp gối) + 15 phút tập cơ cốt lõi (Plank, nâng tạ nhẹ).`
+        `**Cardio bảo vệ khớp 30-40 phút**: Đi bộ nhanh, đạp xe hoặc bơi lội để giảm áp lực lên khớp gối.`
       );
     } else if (bmi && bmi < 18.5) {
       dietTips.push(
-        `**Chế độ tăng cân lành mạnh (Cân nặng ${lastW} kg, BMI ${bmi})**: Tăng nhẹ năng lượng với 3 bữa chính + 2 bữa phụ (sinh tố bơ/chuối, sữa chua hạt óc chó, phô mai), đảm bảo đủ 1.2–1.5g đạm/kg cân nặng mỗi ngày.`
+        `**Dinh dưỡng tăng cân lành mạnh**: Thêm 2 bữa phụ dinh dưỡng (sữa chua, hạt, bơ chuối), nạp đủ 1.2-1.5g đạm/kg.`
       );
       workoutTips.push(
-        `**Tập kháng lực phát triển cơ bắp**: Tập sức mạnh (chống đẩy, squat, tạ nhẹ) **30–40 phút/buổi, 3 buổi/tuần**, hạn chế cardio kéo dài gây tiêu hao calo quá mức.`
+        `**Tập kháng lực tăng cơ**: Tập sức mạnh (chống đẩy, squat, tạ nhẹ) 30-40 phút/buổi, 3 buổi/tuần.`
       );
     } else {
       dietTips.push(
-        `**Duy trì vóc dáng cân đối (${lastW} kg${bmi ? `, BMI ${bmi}` : ''})**: Ăn đa dạng 4 nhóm chất, đúng giờ và hạn chế ăn khuya sau 20h.`
+        `**Dinh dưỡng 4 nhóm chất**: Ăn đủ đạm, chất xơ, tinh bột tốt và chất béo lành mạnh, không ăn khuya sau 20h.`
       );
       workoutTips.push(
-        `**Lịch rèn luyện toàn diện**: Kết hợp **3 buổi Cardio (30 phút)** và **2 buổi tập sức mạnh / giãn cơ (30 phút)** mỗi tuần.`
+        `**Thể lực toàn diện**: Kết hợp 3 buổi Cardio (30 phút) và 2 buổi tập sức mạnh / giãn cơ mỗi tuần.`
       );
     }
   }
@@ -296,10 +299,10 @@ const buildMetricCarePlans = (grouped) => {
     if (lastTemp >= 37.5) {
       hasAcuteRestNeeded = true;
       dietTips.push(
-        `**Bù nước khi thân nhiệt tăng (${lastTemp}°C)**: Uống nhiều nước ấm, oresol hoặc nước cam tươi bổ sung Vitamin C; ăn thức ăn mềm, dễ tiêu như cháo thịt băm, súp gà.`
+        `**Bù nước & Điện giải**: Uống nhiều nước ấm, oresol hoặc nước quả giàu Vitamin C; ăn cháo loãng, súp gà.`
       );
       workoutTips.push(
-        `**Ưu tiên nghỉ ngơi (Thân nhiệt ${lastTemp}°C)**: Tạm ngưng hoàn toàn các bài tập thể lực cho tới khi thân nhiệt trở về bình thường ít nhất 24 giờ.`
+        `**Nghỉ ngơi hồi phục**: Tạm ngưng hoàn toàn các bài tập thể lực cho tới khi hết sốt ít nhất 24 giờ.`
       );
     }
   }
@@ -309,29 +312,29 @@ const buildMetricCarePlans = (grouped) => {
     if (lastSpo2 && lastSpo2 < 94) {
       hasAcuteRestNeeded = true;
       dietTips.push(
-        `**Tăng cường tuần hoàn oxy (SpO₂ ${lastSpo2}%)**: Bổ sung thực phẩm giàu sắt và chất chống oxy hóa (thịt đỏ nạc, rau dền, cải bó xôi, quả mọng), giữ môi trường sống thoáng khí.`
+        `**Thực phẩm hỗ trợ tạo máu**: Ăn rau bina, thịt bò nạc, đậu lăng và uống đủ nước ấm giúp tăng oxy máu.`
       );
       workoutTips.push(
-        `**Bài tập phục hồi hô hấp (SpO₂ ${lastSpo2}%)**: Tập thở mím môi và thở cơ hoành nhẹ nhàng **5–10 phút x 2–3 lần/ngày**; tránh tập gắng sức khi SpO₂ chưa đạt >= 95%.`
+        `**Tập thở cơ hoành 10 phút**: Thở mím môi và thở bụng nhẹ nhàng, nghỉ ngơi khi SpO2 dưới 95%.`
       );
     } else if (lastSpo2) {
       workoutTips.push(
-        `**Tăng dung tích phổi (SpO₂ tốt ${lastSpo2}%)**: Kết hợp bài tập hít thở sâu khi đi bộ ngoài trời vào buổi sáng sớm 20–30 phút.`
+        `**Hít thở sâu ngoài trời**: Đi bộ ngoài trời kết hợp thở sâu vào sáng sớm 20-30 phút giúp tăng dung tích phổi.`
       );
     }
   }
 
   if (dietTips.length === 0) {
     dietTips.push(
-      `Duy trì chế độ ăn cân bằng nhiều rau xanh, trái cây tươi, đạm nạc và uống tối thiểu 1.5–2 lít nước mỗi ngày.`
+      `**Chế độ ăn cân bằng**: Ăn nhiều rau xanh, trái cây tươi, đạm nạc và uống đủ 2 lít nước mỗi ngày.`
     );
   }
 
   if (workoutTips.length === 0) {
     workoutTips.push(
       hasAcuteRestNeeded
-        ? `Ưu tiên nghỉ ngơi theo dõi chỉ số trước khi quay lại vận động nhẹ.`
-        : `Duy trì vận động thể chất nhẹ đến vừa **30 phút/ngày, tối thiểu 5 ngày/tuần** (đi bộ, đạp xe, yoga hoặc giãn cơ).`
+        ? `**Nghỉ ngơi theo dõi**: Ưu tiên nghỉ ngơi theo dõi chỉ số trước khi quay lại vận động nhẹ.`
+        : `**Vận động đều đặn**: Duy trì đi bộ, đạp xe hoặc yoga 30 phút/ngày, tối thiểu 5 ngày/tuần.`
     );
   }
 

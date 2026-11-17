@@ -17,6 +17,9 @@ import {
   X,
   Target,
   ListFilter,
+  LayoutGrid,
+  CheckSquare,
+  Info,
 } from 'lucide-react';
 import { habitService } from '../services/api';
 
@@ -26,6 +29,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
   const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' (7 ngày) | 'today' (chi tiết hôm nay)
   const [weekData, setWeekData] = useState({
     weekStart: '',
     weekDates: [],
@@ -37,6 +41,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({
     title: '',
+    detail: '',
     category: 'diet',
   });
   const [actionMessage, setActionMessage] = useState(null);
@@ -117,7 +122,6 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
       }
     } catch (err) {
       console.error('Lỗi khi cập nhật trạng thái thói quen:', err);
-      // Revert if failed
       fetchWeekData(currentDate);
     }
   };
@@ -142,7 +146,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
         weekStart: weekData.weekStart,
       });
       if (res.success) {
-        setActionMessage(res.message || 'Đã đồng bộ kế hoạch tuần từ AI thành công!');
+        setActionMessage(res.message || 'Đã đồng bộ kế hoạch ngắn gọn từ AI thành công!');
         fetchWeekData(currentDate);
         setTimeout(() => setActionMessage(null), 4000);
       }
@@ -165,6 +169,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
       id: `custom_${Date.now()}`,
       category: newItem.category,
       title: newItem.title.trim(),
+      detail: newItem.detail.trim(),
       targetDays: [],
       order: existingItems.length,
     };
@@ -178,9 +183,9 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
       });
       if (res.success) {
         setWeekData((prev) => ({ ...prev, plan: res.plan }));
-        setNewItem({ title: '', category: 'diet' });
+        setNewItem({ title: '', detail: '', category: 'diet' });
         setShowAddModal(false);
-        setActionMessage('Đã thêm mục mới vào kế hoạch tuần!');
+        setActionMessage('Đã thêm mục mới vào kế hoạch!');
         setTimeout(() => setActionMessage(null), 3000);
       }
     } catch (err) {
@@ -244,7 +249,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
 
   return (
     <div className="space-y-6">
-      {/* Action Notification Alert */}
+      {/* Alert Notification */}
       {actionMessage && (
         <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
@@ -272,7 +277,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                     {weekData.streak.currentStreak} ngày
                   </span>
                   <span className="text-xs font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/60 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    Streak hiện tại
+                    Chuỗi rèn luyện
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
@@ -299,17 +304,17 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                 />
               </div>
               <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 text-right">
-                {totalCompletedWeekTasks}/{totalWeekTasks} nhiệm vụ đã tick
+                {totalCompletedWeekTasks}/{totalWeekTasks} nhiệm vụ hoàn thành
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Tuần, Bộ lọc, Nút AI Sync & Thêm mới */}
+      {/* Control Bar: Tuần, Chế độ xem, Bộ lọc, Nút Đồng bộ */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Navigation Tuần */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
             <button
               onClick={handlePrevWeek}
@@ -318,7 +323,7 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-3 text-xs font-bold text-slate-800 dark:text-slate-200 min-w-[150px] text-center">
+            <span className="px-3 text-xs font-bold text-slate-800 dark:text-slate-200 min-w-[140px] text-center">
               {formatWeekRange()}
             </span>
             <button
@@ -337,40 +342,67 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
           </button>
         </div>
 
-        {/* Filter Categories */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button
-            onClick={() => setFilterCategory('all')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              filterCategory === 'all'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            Tất cả
-          </button>
-          <button
-            onClick={() => setFilterCategory('diet')}
-            className={`flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              filterCategory === 'diet'
-                ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <Utensils className="w-3.5 h-3.5" />
-            <span>Ăn uống</span>
-          </button>
-          <button
-            onClick={() => setFilterCategory('workout')}
-            className={`flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              filterCategory === 'workout'
-                ? 'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <Dumbbell className="w-3.5 h-3.5" />
-            <span>Tập luyện</span>
-          </button>
+        {/* View Mode Toggle & Filter */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Switch Grid / Today Detail */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Bảng tuần (7 ngày)</span>
+            </button>
+            <button
+              onClick={() => setViewMode('today')}
+              className={`flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                viewMode === 'today'
+                  ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>Chi tiết hôm nay</span>
+            </button>
+          </div>
+
+          {/* Filter Categories */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => setFilterCategory('all')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                filterCategory === 'all'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Tất cả
+            </button>
+            <button
+              onClick={() => setFilterCategory('diet')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                filterCategory === 'diet'
+                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 shadow-xs'
+                  : 'text-slate-500'
+              }`}
+            >
+              Ăn uống
+            </button>
+            <button
+              onClick={() => setFilterCategory('workout')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                filterCategory === 'workout'
+                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 shadow-xs'
+                  : 'text-slate-500'
+              }`}
+            >
+              Tập luyện
+            </button>
+          </div>
         </div>
 
         {/* Action Buttons: Sync AI & Add Task */}
@@ -378,8 +410,8 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
           <button
             onClick={() => handleSyncAi()}
             disabled={syncing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
-            title="Đồng bộ quy trình ăn uống & tập luyện từ phân tích sức khỏe AI"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            title="Đồng bộ lộ trình ngắn gọn chuẩn y khoa từ phân tích AI"
           >
             <Sparkles className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ từ AI'}</span>
@@ -398,19 +430,19 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center text-slate-400">
           <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-          <p className="text-sm font-medium">Đang tải bảng kế hoạch tuần...</p>
+          <p className="text-sm font-medium">Đang tải kế hoạch tuần...</p>
         </div>
       ) : filteredItems.length === 0 ? (
         /* Empty State */
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center max-w-lg mx-auto shadow-sm">
-          <div className="w-16 h-16 mx-auto mb-4 bg-teal-50 dark:bg-teal-950/50 rounded-2xl flex items-center justify-center text-teal-600 dark:text-teal-400">
-            <Sparkles className="w-8 h-8" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-lg mx-auto shadow-sm">
+          <div className="w-14 h-14 mx-auto mb-3 bg-teal-50 dark:bg-teal-950/50 rounded-2xl flex items-center justify-center text-teal-600 dark:text-teal-400">
+            <Sparkles className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
             Chưa có mục thói quen cho tuần này
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-            Bạn có thể nhấn nút <strong>"Đồng bộ từ AI"</strong> để tự động chuyển quy trình ăn uống & bài tập được AI phân tích thành danh sách checklist, hoặc tự tạo thêm mục theo ý muốn.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+            Nhấn <strong>"Đồng bộ từ AI"</strong> để tự động chuyển quy trình ăn uống & tập luyện ngắn gọn, khoa học vào bảng theo dõi.
           </p>
           <div className="flex items-center justify-center gap-3">
             <button
@@ -425,12 +457,149 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Tự thêm mục thói quen</span>
+              <span>Tự thêm mục</span>
             </button>
           </div>
         </div>
+      ) : viewMode === 'today' ? (
+        /* TODAY FOCUS VIEW: To, rõ, dễ đọc, không bị chèn ép */
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  Hôm nay • {new Date(todayStr).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white mt-1">
+                Nhiệm vụ rèn luyện trong ngày
+              </h3>
+            </div>
+            {(() => {
+              const { completed, total, percentage } = getDayCompletion(todayStr);
+              return (
+                <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl">
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {completed}/{total} hoàn thành
+                    </div>
+                    <div className="text-[11px] text-emerald-600 font-semibold">{percentage}% mục tiêu</div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full border-2 border-emerald-500 flex items-center justify-center font-black text-xs text-emerald-600">
+                    {percentage}%
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Today Tasks by Category */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Ăn uống (Diet) */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-orange-700 dark:text-orange-400">
+                <Utensils className="w-4 h-4" />
+                <span>🥗 Chế độ dinh dưỡng & Ăn uống</span>
+              </div>
+              <div className="space-y-2.5">
+                {filteredItems
+                  .filter((i) => i.category === 'diet')
+                  .map((item) => {
+                    const { completedIds } = getDayCompletion(todayStr);
+                    const done = completedIds.includes(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleToggle(todayStr, item.id, done)}
+                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-150 select-none ${
+                          done
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-teal-400'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 mt-0.5">
+                            {done ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <Circle className="w-5 h-5 text-slate-300 hover:text-teal-500" />
+                            )}
+                          </div>
+                          <div>
+                            <h5
+                              className={`text-sm font-bold leading-snug ${
+                                done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {item.title}
+                            </h5>
+                            {item.detail && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                {item.detail}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Tập luyện (Workout) */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-teal-700 dark:text-teal-400">
+                <Dumbbell className="w-4 h-4" />
+                <span>🏃 Kế hoạch vận động & Tập luyện</span>
+              </div>
+              <div className="space-y-2.5">
+                {filteredItems
+                  .filter((i) => i.category === 'workout')
+                  .map((item) => {
+                    const { completedIds } = getDayCompletion(todayStr);
+                    const done = completedIds.includes(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleToggle(todayStr, item.id, done)}
+                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-150 select-none ${
+                          done
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-teal-400'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 mt-0.5">
+                            {done ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <Circle className="w-5 h-5 text-slate-300 hover:text-teal-500" />
+                            )}
+                          </div>
+                          <div>
+                            <h5
+                              className={`text-sm font-bold leading-snug ${
+                                done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {item.title}
+                            </h5>
+                            {item.detail && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                {item.detail}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : (
-        /* Weekly Board Grid (Phương án B: 7 Cột Thứ 2 -> Chủ Nhật) */
+        /* WEEKLY GRID VIEW: 7 Cột ngắn gọn, rõ ràng */
         <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
           {weekData.weekDates.map((dateStr, idx) => {
             const isToday = dateStr === todayStr;
@@ -489,8 +658,8 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                   </div>
                 </div>
 
-                {/* Task Checklist Items */}
-                <div className="p-2.5 space-y-2 flex-1 flex flex-col justify-between">
+                {/* Task Checklist Items - NGẮN GỌN, DỄ NHÌN */}
+                <div className="p-2 space-y-1.5 flex-1 flex flex-col justify-between">
                   <div className="space-y-1.5">
                     {filteredItems.map((item) => {
                       const done = completedIds.includes(item.id);
@@ -502,8 +671,8 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                           onClick={() => handleToggle(dateStr, item.id, done)}
                           className={`p-2 rounded-xl border text-left cursor-pointer transition-all duration-150 group select-none ${
                             done
-                              ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-300'
-                              : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700 text-slate-700 dark:text-slate-200'
+                              ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-300'
+                              : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700'
                           }`}
                         >
                           <div className="flex items-start gap-1.5">
@@ -515,8 +684,9 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
+                              {/* Tiêu đề ngắn gọn 3-6 từ */}
                               <p
-                                className={`text-[11px] font-medium leading-tight ${
+                                className={`text-[11px] font-bold leading-tight ${
                                   done
                                     ? 'line-through text-slate-400 dark:text-slate-500'
                                     : 'text-slate-800 dark:text-slate-200'
@@ -524,12 +694,25 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
                               >
                                 {item.title}
                               </p>
+
+                              {/* Chi tiết ngắn gọn hiển thị tinh gọn 1 dòng */}
+                              {item.detail && (
+                                <p
+                                  className={`text-[10px] mt-0.5 line-clamp-1 leading-tight ${
+                                    done ? 'text-slate-300 dark:text-slate-600' : 'text-slate-400 dark:text-slate-400'
+                                  }`}
+                                  title={item.detail}
+                                >
+                                  {item.detail}
+                                </p>
+                              )}
+
                               <div className="flex items-center gap-1 mt-1">
                                 <span
-                                  className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                                  className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
                                     isDiet
-                                      ? 'text-orange-600 bg-orange-100 dark:bg-orange-950/60'
-                                      : 'text-teal-600 bg-teal-100 dark:bg-teal-950/60'
+                                      ? 'text-orange-700 bg-orange-100 dark:bg-orange-950/60 dark:text-orange-300'
+                                      : 'text-teal-700 bg-teal-100 dark:bg-teal-950/60 dark:text-teal-300'
                                   }`}
                                 >
                                   {isDiet ? 'Ăn uống' : 'Tập luyện'}
@@ -554,37 +737,56 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <ListFilter className="w-4 h-4 text-teal-600" />
-              <span>Danh sách các mục thói quen trong kế hoạch tuần ({planItems.length})</span>
+              <span>Các mục thói quen đang theo dõi ({planItems.length})</span>
             </h4>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
-            >
-              + Thêm mục mới
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleSyncAi()}
+                className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 cursor-pointer"
+                title="Làm mới lại toàn bộ lộ trình theo phân tích AI mới nhất"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Đồng bộ lại từ AI</span>
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="text-xs text-teal-600 hover:text-teal-700 font-semibold cursor-pointer"
+              >
+                + Thêm mục mới
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {planItems.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"
+                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"
               >
-                <div className="flex items-center gap-2 min-w-0 pr-2">
-                  {item.category === 'diet' ? (
-                    <Utensils className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                  ) : (
-                    <Dumbbell className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                  )}
-                  <span className="truncate text-slate-800 dark:text-slate-200 font-medium">
-                    {item.title}
-                  </span>
+                <div className="flex items-start gap-2.5 min-w-0 pr-2">
+                  <div className="mt-0.5 shrink-0">
+                    {item.category === 'diet' ? (
+                      <Utensils className="w-4 h-4 text-orange-500" />
+                    ) : (
+                      <Dumbbell className="w-4 h-4 text-teal-500" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-white truncate">
+                      {item.title}
+                    </p>
+                    {item.detail && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {item.detail}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => handleDeleteItem(item.id)}
-                  className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
+                  className="text-slate-400 hover:text-rose-500 p-1.5 transition-colors shrink-0 cursor-pointer"
                   title="Xóa mục này"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
@@ -634,15 +836,28 @@ export default function WeeklyHabitBoard({ initialAiText = null, onNavigateToAi 
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Nội dung thói quen
+                  Tên thói quen ngắn gọn (Tiêu đề)
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Uống 2L nước, Chạy bộ 20 phút..."
+                  placeholder="Ví dụ: Ăn nhạt chuẩn DASH, Đi bộ nhanh 30 phút..."
                   value={newItem.title}
                   onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Hướng dẫn chi tiết (Tùy chọn)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ví dụ: Giảm muối dưới 5g/ngày, ăn nhiều rau quả giàu Kali..."
+                  value={newItem.detail}
+                  onChange={(e) => setNewItem({ ...newItem, detail: e.target.value })}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                 />
               </div>
 

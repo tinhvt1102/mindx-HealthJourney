@@ -234,35 +234,59 @@ export const syncFromAi = async (req, res) => {
       const line = rawLine.trim();
       if (!line) continue;
 
-      if (line.includes('Quy trình ăn uống') || line.includes('ăn uống') || line.includes('dinh dưỡng')) {
-        currentCategory = 'diet';
-        continue;
-      }
-      if (line.includes('Quy trình tập luyện') || line.includes('tập luyện') || line.includes('vận động')) {
-        currentCategory = 'workout';
-        continue;
-      }
-      if (line.startsWith('###') && !line.includes('ăn uống') && !line.includes('tập luyện')) {
-        currentCategory = null;
-        continue;
+      // Chỉ chuyển đổi danh mục khi gặp tiêu đề phần (Header bắt đầu bằng ### hoặc Quy trình...)
+      const isHeader = line.startsWith('#') || /^(###|\d+\.|\*\*Quy trình)/i.test(line);
+      if (isHeader) {
+        const lower = line.toLowerCase();
+        if (lower.includes('ăn uống') || lower.includes('dinh dưỡng')) {
+          currentCategory = 'diet';
+          continue;
+        }
+        if (lower.includes('tập luyện') || lower.includes('vận động')) {
+          currentCategory = 'workout';
+          continue;
+        }
+        if (line.startsWith('#')) {
+          currentCategory = null;
+          continue;
+        }
       }
 
       if (!currentCategory) continue;
 
-      // Nhận diện bullet points
-      const bulletMatch = line.match(/^[-*•\d.]+\s*(.+)/);
-      if (bulletMatch) {
-        const cleanText = bulletMatch[1].replace(/\*\*/g, '').trim();
-        if (cleanText.length > 3) {
-          const id = `ai_${currentCategory}_${Date.now()}_${order}`;
-          items.push({
-            id,
-            category: currentCategory,
-            title: cleanText,
-            targetDays: [], // Áp dụng mỗi ngày
-            order: order++,
-          });
+      // Nhận diện bullet points và bóc tách Tiêu đề ngắn gọn + Chi tiết hành động
+      let title = '';
+      let detail = '';
+
+      const boldMatch = line.match(/^[-*•\d.]+\s*\*\*(.+?)\*\*[:\s-]*(.*)/);
+      if (boldMatch) {
+        title = boldMatch[1].trim();
+        detail = boldMatch[2].replace(/\*\*/g, '').trim();
+      } else {
+        const bulletMatch = line.match(/^[-*•\d.]+\s*(.+)/);
+        if (bulletMatch) {
+          const rawText = bulletMatch[1].replace(/\*\*/g, '').trim();
+          const splitIdx = rawText.indexOf(':');
+          if (splitIdx > 0 && splitIdx <= 40) {
+            title = rawText.slice(0, splitIdx).trim();
+            detail = rawText.slice(splitIdx + 1).trim();
+          } else {
+            title = rawText;
+            detail = '';
+          }
         }
+      }
+
+      if (title && title.length > 2) {
+        const id = `ai_${currentCategory}_${Date.now()}_${order}`;
+        items.push({
+          id,
+          category: currentCategory,
+          title,
+          detail,
+          targetDays: [], // Áp dụng mỗi ngày
+          order: order++,
+        });
       }
     }
 
